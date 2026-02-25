@@ -1,0 +1,227 @@
+%!TEX program = xelatex
+%!TEX options=--shell-escape
+\documentclass[12pt]{article}
+
+%
+\usepackage[scheme=plain]{ctex}
+%
+\usepackage{fontspec}
+%
+\usepackage[margin = 1in]{geometry}
+
+%
+\usepackage[dvipsnames]{xcolor}
+\usepackage[many]{tcolorbox}
+
+%
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+%
+\usepackage{tensor}
+%
+\usepackage{slashed}
+\usepackage{physics}
+\usepackage{simpler-wick}
+
+%
+\usepackage{mathtools}
+
+%
+\usepackage{bm}
+\newcommand{\dbar}{\dif\hspace*{-0.18em}\bar{}\hspace*{0.2em}}
+\DeclareMathAlphabet\mathbfcal{OMS}{cmsy}{b}{n}
+%\usepackage{bbold}
+\newcommand*{\dif}{\mathop{}\!\mathrm{d}}
+\newcommand*{\euler}{\mathrm{e}}
+\newcommand*{\imagi}{\mathrm{i}}
+
+\renewcommand{\vec}[1]{\boldsymbol{\mathbf{#1}}}
+
+\usepackage{caption}
+\usepackage{multirow}
+\usepackage{enumitem}
+
+%
+\usepackage{mathrsfs}
+\usepackage{dsfont}
+
+%
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=violet,
+    filecolor=blue,
+    urlcolor=blue,
+    citecolor=cyan,
+}
+
+%
+\usepackage{graphicx}
+\usepackage{subfig}
+%
+\graphicspath{{../figures/}}
+
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usetikzlibrary{calc}
+
+\usepackage{listings}
+\usepackage{lstautogobble}
+\lstset{
+    basicstyle=\ttfamily,
+    columns=fullflexible,
+    autogobble=true,
+}
+
+%
+\usepackage{indentfirst}
+%
+\setlength{\parindent}{2em}
+\linespread{1.25}
+
+%
+% \setmainfont{Times New Roman}
+
+\title{Note}
+\author{Feng-Yang Hsieh}
+\date{}
+
+\begin{document}
+\maketitle
+
+
+\section{ATLAS latest study}% (fold)
+\label{sec:atlas_latest_study}
+
+    The couplings of longitudinally polarized $W$ and $Z$ bosons to the Higgs boson prevent the divergence of tree-level Vector Boson Scattering (VBS) amplitudes at high energies when the two outgoing bosons are longitudinally polarized, restoring the unitarity at the TeV scale. Thus, the VBS processes with longitudinal vector bosons provide a sensitive test of the electroweak (EW) symmetry breaking mechanism.
+ 
+    The most recent ATLAS study is detailed in Ref.~\cite{ATLAS:2025wuw}. This study focuses on VBS. Specifically, it investigates the EW production of same-sign $W$ boson pairs (EW $W^{\pm} W^{\pm} jj$), a process to which VBS provides a significant contribution. The key concepts and event selection criteria of this work are summarized below.
+
+    The object selection criteria are as follows:
+    \begin{itemize}
+        \item \textbf{Electrons:} Must have transverse momentum $p_{\text{T}} > 27~\mathrm{GeV}$ and pseudorapidity $\abs{\eta} < 2.47$, excluding the calorimeter transition region of $1.37 < \abs{\eta} < 1.52$.
+        \item \textbf{Muons:} Must have $p_{\text{T}} > 27~\mathrm{GeV}$ and $\abs{\eta} < 2.5$.
+        \item \textbf{Jets:} At least two jets with $\abs{\eta} < 4.5$ are required in each event. The leading jet must have $p_{\text{T}} > 65~\mathrm{GeV}$, and the subleading jet must have $p_{\text{T}} > 35~\mathrm{GeV}$.
+    \end{itemize}
+
+    The Signal Region (SR) event selection requires:
+    \begin{itemize}
+        \item A same-sign lepton pair with an invariant mass $m_{\ell\ell} > 20~\mathrm{GeV}$.
+        \item Missing transverse momentum magnitude, $E_{\text{T}}^{\text{miss}}$, greater than $30~\mathrm{GeV}$.
+        \item The two highest-$p_{\text{T}}$ jets must satisfy a dijet invariant mass $m_{jj} > 500~\mathrm{GeV}$ with an absolute rapidity difference $\abs{\Delta y_{jj}} > 2.0$.
+    \end{itemize}
+% section atlas_latest_study (end)
+
+\section{Monte Carlo simulation}% (fold)
+\label{sec:monte_carlo_simulation}
+
+    \subsection{Sample Generation}% (fold)
+    \label{sub:sample_generation}
+        The signal processes are the electroweak (EW) production of $W^{\pm}W^{\pm}jj$ in various polarization states. We simulate the EW same-sign $W$ boson pair production at a center-of-mass energy of $\sqrt{s} = 13~\text{TeV}$. The events are generated using \verb|MadGraph 3.3.1|~\cite{Alwall:2014hca}. Both $W$ bosons are forced to decay leptonically. Parton showering and hadronization are simulated with \verb|Pythia 8.306|~\cite{Sjostrand:2014zea}, followed by a fast detector simulation using \verb|Delphes 3.4.2|~\cite{deFavereau:2013fsa}. Jets are reconstructed via the anti-$k_t$ algorithm~\cite{Cacciari:2008gp} with a distance parameter of $R = 0.4$, implemented in \verb|FastJet 3.3.2|~\cite{Cacciari:2011ma}. Reconstructed jets are required to have a transverse momentum of $p_{\text{T}} > 25~\text{GeV}$.
+
+        The following \verb|MadGraph| scripts are used to generate the Monte Carlo (MC) samples for these polarized processes:
+        
+        \paragraph{Longitudinal mode: $pp \to W^{\pm}_{\text{L}}W^{\pm}_{\text{L}} jj$}
+        \begin{lstlisting}
+            generate p p > j j w+{0} w+{0} QCD=0, w+ > l+ vl
+            add process p p > j j w-{0} w-{0} QCD=0, w- > l- vl~
+            output EW_WWjj_LL
+            launch EW_WWjj_LL
+
+            shower=Pythia8
+            detector=Delphes
+            analysis=OFF
+            madspin=OFF
+            done
+
+            Cards/delphes_card.dat
+
+            set run_card nevents 10000
+            set run_card ebeam1 6500.0
+            set run_card ebeam2 6500.0
+
+            set run_card ptj 34.0
+            set run_card ptl 26.0
+            set run_card misset 29.0
+
+            set run_card etaj 4.6
+            set run_card etal 2.6
+
+            set run_card mmjj 480
+            set run_card deltaeta 1.9
+
+            set run_card ptj1min 64
+            set run_card ptj2min 34
+
+            set run_card use_syst False
+
+            done
+        \end{lstlisting}
+
+        \paragraph{Transverse mode: $pp \to W^{\pm}_{\text{T}}W^{\pm}_{\text{T}} jj$}
+        \begin{lstlisting}
+            generate p p > j j w+{T} w+{T} QCD=0, w+ > l+ vl
+            add process p p > j j w-{T} w-{T} QCD=0, w- > l- vl~
+            ...
+        \end{lstlisting}
+
+        \paragraph{Mixed mode: $pp \to W^{\pm}_{\text{L}}W^{\pm}_{\text{T}} jj$}
+        \begin{lstlisting}
+            generate p p > j j w+{0} w+{T} QCD=0, w+ > l+ vl
+            add process p p > j j w-{0} w-{T} QCD=0, w- > l- vl~
+            ...
+        \end{lstlisting}
+
+    % subsection sample_generation (end)
+
+    \subsection{Event Selection}% (fold)
+    \label{sub:event_selection}
+
+        The event selection criteria applied after the \verb|Delphes| simulation are defined as follows:
+        \begin{itemize}
+            \item \textbf{Lepton cut:} The invariant mass of the same-sign lepton pair, $m_{\ell\ell}$, must be greater than $20~\mathrm{GeV}$.
+            \item \textbf{MET cut:} The missing transverse momentum magnitude, $E_{\text{T}}^{\text{miss}}$, must be greater than $30~\mathrm{GeV}$.
+            \item \textbf{Jet cut:} The two highest-$p_{\text{T}}$ tagging jets must satisfy a dijet invariant mass of $m_{jj} > 500~\mathrm{GeV}$ with an absolute rapidity difference of $\abs{\Delta y_{jj}} > 2.0$.
+        \end{itemize}
+
+        Table~\ref{tab:EW_WWjj_cutflow_number} summarizes the cutflow (number of expected events and the corresponding selection efficiencies) at each selection stage. The reconstruction requirements for electrons, muons, and jets are identical to those described in Section~\ref{sec:atlas_latest_study}.
+
+        \begin{table}[htpb]
+            \centering
+            \caption{Number of events and selection efficiencies (pass rates) for EW $W^{\pm}W^{\pm}jj$ production at different selection stages.}
+            \label{tab:EW_WWjj_cutflow_number}
+            \begin{tabular}{l|rr|rr|rr}
+                Cut        & LL     & pass rate & LT     & pass rate & TT     & pass rate \\ \hline
+                Total      & 100000 & 1.00      & 100000 & 1.00      & 100000 & 1.00      \\
+                Lepton cut & 26777  & 0.27      & 27270  & 0.27      & 29825  & 0.30      \\
+                MET cut    & 24781  & 0.25      & 25518  & 0.26      & 28323  & 0.28      \\
+                Jet cut    & 20005  & 0.20      & 21087  & 0.21      & 23298  & 0.23      \\
+            \end{tabular}
+        \end{table}
+
+        Figure~\ref{fig:kinematic_distributions} displays the kinematic distributions for the various polarization states in the SR. Specifically, we present the absolute pseudorapidity difference between the leading and subleading leptons $\abs{\Delta\eta_{\ell\ell}}$, the transverse mass of the dilepton and $E_{\text{T}}^{\text{miss}}$ system $m_{\text{T}}$, and the azimuthal angle difference between the leading and subleading jets $\Delta\phi_{jj}$. The ratios of the individual process contributions to the total signal are shown in the bottom panels. For these combined distributions, we assume that the $W^{\pm}_{\text{L}}W^{\pm}_{\text{L}} jj$, $W^{\pm}_{\text{L}}W^{\pm}_{\text{T}} jj$, and $W^{\pm}_{\text{T}}W^{\pm}_{\text{T}} jj$ states contribute 10\%, 30\%, and 60\% to the total signal, respectively.
+
+        \begin{figure}[htpb]
+            \centering
+            \subfloat[$\abs{\Delta\eta_{\ell\ell}}$ distribution]{
+                \includegraphics[width=0.32\textwidth]{EW_WWjj_deta_ll.pdf}
+            }
+            \subfloat[$m_{\text{T}}$ distribution]{
+                 \includegraphics[width=0.32\textwidth]{EW_WWjj_mT.pdf}
+            }
+            \subfloat[$\Delta\phi_{jj}$ distribution]{
+                \includegraphics[width=0.32\textwidth]{EW_WWjj_dphi_jj.pdf}
+            }
+            \caption{Kinematic distributions of $\abs{\Delta\eta_{\ell\ell}}$, $m_{\text{T}}$, and $\Delta\phi_{jj}$ in the signal region. The ratios of the contributions from different polarization states are shown in the bottom panels.}
+            \label{fig:kinematic_distributions}
+        \end{figure}
+
+    % subsection event_selection (end)
+    
+% section monte_carlo_simulation (end)
+
+\bibliographystyle{ieeetr}
+\bibliography{reference}
+
+\end{document}
