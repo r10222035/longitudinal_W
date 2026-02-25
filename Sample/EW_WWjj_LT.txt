@@ -1,0 +1,34 @@
+generate p p > j j w+{0} w+{T} QCD=0, w+ > l+ vl
+add process p p > j j w-{0} w-{T} QCD=0, w- > l- vl~
+output EW_WWjj_LT
+launch EW_WWjj_LT
+
+shower=Pythia8
+detector=Delphes
+analysis=OFF
+madspin=OFF
+done
+
+Cards/delphes_card.dat
+
+set run_card nevents 10000
+set run_card ebeam1 6500.0
+set run_card ebeam2 6500.0
+
+set run_card ptj 34.0
+set run_card ptl 26.0
+set run_card misset 29.0
+
+set run_card etaj 4.6
+set run_card etal 2.6
+
+set run_card mmjj 480
+set run_card deltaeta 1.9
+
+set run_card ptj1min 64
+set run_card ptj2min 34
+
+
+set run_card use_syst False
+
+done

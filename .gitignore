@@ -1,0 +1,17 @@
+*.aux
+*.log
+*.out
+*.xdv
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+
+__pycache__/
+
+/Reference
+*_models/
+config_files/
+*.sh
+Sample/EW_WWjj_*/
