@@ -218,7 +218,32 @@
         \end{figure}
 
     % subsection event_selection (end)
-    
+
+    \subsection{Absolute Cross-Sections}% (fold)
+    \label{sub:absolute_cross_sections}
+
+        Table~\ref{tab:EW_WWjj_abs_cross_section} summarizes the absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production across different selection stages. To validate our simulation framework, the final cross-sections after the jet cut are compared with the reference results from a previous thesis~\cite{stange2025longitudinal}. 
+
+        \begin{table}[htpb]
+            \centering
+            \caption{Absolute cross-sections (in fb) for the EW $W^{\pm}W^{\pm}jj$ production at various selection stages. The reference values from the previous thesis and the relative fractions are provided at the final jet cut stage for comparison.}
+            \label{tab:EW_WWjj_abs_cross_section}
+            \begin{tabular}{l|rrrr}
+                \hline
+                Cut & LL & LT & TT & Total \\ \hline
+                Total            & 0.443 & 2.514 & 3.824 & 6.781 \\
+                Lepton cut       & 0.119 & 0.685 & 1.140 & 1.945 \\
+                MET cut          & 0.110 & 0.641 & 1.083 & 1.834 \\
+                Jet cut          & 0.089 & 0.530 & 0.891 & 1.510 \\ \hline
+                Jet cut (Thesis) & 0.177 & 1.030 & 1.718 & 2.925 \\ \hline
+                Fraction         & 5.9\% & 35.1\% & 59.0\% & 100\% \\
+                Fraction (Thesis)& 6.1\% & 35.2\% & 58.7\% & 100\% \\ \hline
+            \end{tabular}
+        \end{table}
+
+        As observed in Table~\ref{tab:EW_WWjj_abs_cross_section}, while the relative fractions of the polarization states are in excellent agreement with the reference thesis, the absolute cross-sections in our simulation are approximately a factor of two lower. Further investigation is needed.
+    % subsection absolute_cross_sections (end)    
+
 % section monte_carlo_simulation (end)
 
 \bibliographystyle{ieeetr}
