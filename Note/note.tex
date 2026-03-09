@@ -94,7 +94,7 @@
 \section{ATLAS latest study}% (fold)
 \label{sec:atlas_latest_study}
 
-    The couplings of longitudinally polarized $W$ and $Z$ bosons to the Higgs boson prevent the divergence of tree-level Vector Boson Scattering (VBS) amplitudes at high energies when the two outgoing bosons are longitudinally polarized, restoring the unitarity at the TeV scale. Thus, the VBS processes with longitudinal vector bosons provide a sensitive test of the electroweak (EW) symmetry breaking mechanism.
+    The couplings of longitudinally polarized $W$ and $Z$ bosons to the Higgs boson prevent the divergence of tree-level Vector Boson Scattering (VBS) amplitudes at high energies when the two outgoing bosons are longitudinally polarized, restoring the unitarity at the TeV scale. Thus, the VBS processes with longitudinal vector bosons provide a sensitive test of the electroweak (EW) symmetry-breaking mechanism.
  
     The most recent ATLAS study is detailed in Ref.~\cite{ATLAS:2025wuw}. This study focuses on VBS. Specifically, it investigates the EW production of same-sign $W$ boson pairs (EW $W^{\pm} W^{\pm} jj$), a process to which VBS provides a significant contribution. The key concepts and event selection criteria of this work are summarized below.
 
@@ -243,6 +243,105 @@
 
         As observed in Table~\ref{tab:EW_WWjj_abs_cross_section}, while the relative fractions of the polarization states are in excellent agreement with the reference thesis, the absolute cross-sections in our simulation are approximately a factor of two lower. Further investigation is needed.
     % subsection absolute_cross_sections (end)    
+
+    \subsection{\texorpdfstring{$WW$}{WW} Center-of-Mass Reference Frame}% (fold)
+    \label{sub:ww_center_of_mass_reference_frame}
+
+        To properly study the scattering dynamics, we modify our \verb|MadGraph| scripts to define the $W$ boson polarizations in the $W^{\pm}W^{\pm}$ center-of-mass (CM) frame. 
+
+        The following generation commands are used to produce the MC samples with this specific reference frame definition:
+
+        \paragraph{Longitudinal mode: $pp \to W^{\pm}_{\text{L}}W^{\pm}_{\text{L}} jj$}
+        \begin{lstlisting}
+            generate p p > w+{0} w+{0} j j QCD=0, w+ > l+ vl
+            add process p p > w-{0} w-{0} j j QCD=0, w- > l- vl~
+            output MG5/EW_WWjj_LL-WW_cmf
+            launch MG5/EW_WWjj_LL-WW_cmf
+
+            shower=Pythia8
+            detector=Delphes
+            analysis=OFF
+            madspin=OFF
+            done
+
+            Cards/delphes_card.dat
+
+            set run_card nevents 10000
+            set run_card ebeam1 6500.0
+            set run_card ebeam2 6500.0
+
+            set run_card ptj 34.0
+            set run_card etaj 4.6
+            set run_card mmjj 480
+            set run_card deltaeta 1.9
+
+            set run_card etal 2.6
+            set run_card ptl 26.0
+            set run_card misset 29.0
+
+            set run_card ptj1min 64
+            set run_card ptj2min 34
+
+            set run_card me_frame 3, 4, 5, 6
+
+            set run_card use_syst False
+
+            done
+        \end{lstlisting}
+
+        \paragraph{Transverse mode: $pp \to W^{\pm}_{\text{T}}W^{\pm}_{\text{T}} jj$}
+        \begin{lstlisting}
+            generate p p > w+{T} w+{T} j j QCD=0, w+ > l+ vl
+            add process p p > w-{T} w-{T} j j QCD=0, w- > l- vl~
+            ...
+        \end{lstlisting}
+
+        \paragraph{Mixed mode: $pp \to W^{\pm}_{\text{L}}W^{\pm}_{\text{T}} jj$}
+        \begin{lstlisting}
+            generate p p > w+{0} w+{T} j j QCD=0, w+ > l+ vl
+            add process p p > w-{0} w-{T} j j QCD=0, w- > l- vl~
+            ...
+        \end{lstlisting}
+
+        The key modification lies in the \verb|me_frame| setting. More details can be found in ref.~\cite{BuarqueFranzosi:2019boy}. It is crucial to note that when utilizing the in-line decay syntax, \verb|MadGraph| expands the decay products directly into the final-state particle list. Consequently, the indices must be specified as \verb|3, 4, 5, 6| to encompass all the decay products (leptons and neutrinos) required to reconstruct the $WW$ system.
+
+        The remaining shower, detector, and run card settings for the transverse and mixed modes are identical to those of the longitudinal mode and are omitted here for brevity.
+
+        Table~\ref{tab:EW_WWjj_abs_cross_section_ww_cmf} summarizes the absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production when the polarizations are defined in the $W^{\pm}W^{\pm}$ CM frame. The absolute cross-sections are still a factor of two lower.
+        \begin{table}[htpb]
+            \centering
+            \caption{Absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production at various selection stages, with $W$ boson polarizations defined in the $W^{\pm}W^{\pm}$ center-of-mass frame. Reference values from the previous thesis and relative fractions are provided at the final jet cut stage for comparison.}
+            \label{tab:EW_WWjj_abs_cross_section_ww_cmf}
+            \begin{tabular}{l|rrrr}
+                \hline
+                Cut & LL [fb] & LT [fb] & TT [fb] & Total [fb] \\ \hline
+                Total            & 0.677 & 2.190  & 3.889  & 6.756 \\
+                Lepton cut       & 0.190 & 0.577  & 1.143  & 1.910 \\
+                MET cut          & 0.177 & 0.535  & 1.081  & 1.793 \\
+                Jet cut          & 0.147 & 0.443  & 0.895  & 1.485 \\ \hline
+                Jet cut (Thesis) & 0.277 & 0.874  & 1.744  & 2.869 \\ \hline
+                Fraction         & 5.9\% & 35.1\% & 59.0\% & 100\% \\
+                Fraction (Thesis)& 9.6\% & 30.6\% & 59.8\% & 100\% \\ \hline
+            \end{tabular}
+        \end{table}
+
+        Figure~\ref{fig:kinematic_distributions_ww_cmf} displays the kinematic distributions for the various polarization states in the SR within the $WW$ center-of-mass frame. These results are consistent with figure~2 in ref.~\cite{ATLAS:2025wuw}.
+        \begin{figure}[htpb]
+            \centering
+            \subfloat[$\abs{\Delta\eta_{\ell\ell}}$ distribution]{
+                \includegraphics[width=0.32\textwidth]{EW_WWjj_deta_ll-ww_cmf.pdf}
+            }
+            \subfloat[$m_{\text{T}}$ distribution]{
+                \includegraphics[width=0.32\textwidth]{EW_WWjj_mT-ww_cmf.pdf}
+            }
+            \subfloat[$\Delta\phi_{jj}$ distribution]{
+                \includegraphics[width=0.32\textwidth]{EW_WWjj_dphi_jj-ww_cmf.pdf}
+            }
+            \caption{Kinematic distributions of $\abs{\Delta\eta_{\ell\ell}}$, $m_{\text{T}}$, and $\Delta\phi_{jj}$ in the signal region. The ratios of the contributions from different polarization states are shown in the bottom panels.}
+            \label{fig:kinematic_distributions_ww_cmf}
+        \end{figure}
+
+    % subsection ww_center_of_mass_reference_frame (end)
 
 % section monte_carlo_simulation (end)
 
