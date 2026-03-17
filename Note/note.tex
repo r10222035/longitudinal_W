@@ -320,7 +320,7 @@
                 MET cut          & 0.177 & 0.535  & 1.081  & 1.793 \\
                 Jet cut          & 0.147 & 0.443  & 0.895  & 1.485 \\ \hline
                 Jet cut (Thesis) & 0.277 & 0.874  & 1.744  & 2.869 \\ \hline
-                Fraction         & 5.9\% & 35.1\% & 59.0\% & 100\% \\
+                Fraction         & 9.4\% & 30.4\% & 60.2\% & 100\% \\
                 Fraction (Thesis)& 9.6\% & 30.6\% & 59.8\% & 100\% \\ \hline
             \end{tabular}
         \end{table}
@@ -342,6 +342,100 @@
         \end{figure}
 
     % subsection ww_center_of_mass_reference_frame (end)
+
+    \subsection{Simulation with Sherpa}% (fold)
+    \label{sub:simulation_with_sherpa}
+        
+        To investigate the cross-section discrepancy, we employ a different Monte Carlo generator, \verb|Sherpa 3|~\cite{Sherpa:2024mfk}, which is also the primary generator utilized in the ATLAS analysis.
+
+        We simulate the EW same-sign $W$ boson pair production at a center-of-mass energy of $\sqrt{s} = 13$ TeV. Both $W$ bosons are forced to decay leptonically. Parton showering and hadronization are handled internally by \verb|Sherpa|, followed by a fast detector simulation using \verb|Delphes 3.4.2|~\cite{deFavereau:2013fsa}. Jets are reconstructed via the anti-$k_t$ algorithm~\cite{Cacciari:2008gp} with a distance parameter of $R = 0.4$, implemented in \verb|FastJet 3.3.2|~\cite{Cacciari:2011ma}. The reconstructed jets are required to have a transverse momentum of $p_{\text{T}} > 25$ GeV.
+
+        Unlike \verb|MadGraph|, which can generate pure polarized samples, \verb|Sherpa| generates events and assigns polarization weights to each of them. These weights represent the probability of an event belonging to a specific polarization state. Due to technical constraints within the generator, the $W^{+}W^{+}jj$ and $W^{-}W^{-}jj$ processes must be generated as separate samples.
+
+        The following YAML configuration snippet illustrates the generation of the $W^{+}W^{+}jj$ sample using \verb|Sherpa|:
+        \paragraph{$W^{+}W^{+} jj$ sample}
+        \begin{lstlisting}
+            EVENTS: 100
+            RANDOM_SEED: 1
+
+            BEAMS: 2212
+            BEAM_ENERGIES: 6500
+
+            PDF_SET: NNPDF30_nlo_as_0118
+
+            ME_GENERATORS:
+              - Comix
+            COMIX_DEFAULT_GAUGE: 0
+
+            # scales
+            MEPS:
+              CORE_SCALE: VAR{0.5*Abs2(p[2]+p[3])} 
+
+            # physical constants and width settings
+            PARTICLE_DATA:
+              24: {Width: 0, Narrow: 1}   # W Boson
+              23: {Width: 0, Narrow: 1}   # Z Boson
+            WIDTH_SCHEME: Fixed
+
+            # decay and polarization settings
+            HARD_DECAYS:
+              Enabled: true
+              Channels:
+                24,-11,12: {Status: 2}   # W+ -> e+ nu_e
+                24,-13,14: {Status: 2}   # W+ -> mu+ nu_mu
+              Pol_Cross_Section:
+                Enabled: true
+                Reference_System: [Lab, COM]
+
+            # process definition: same-sign W boson pair production with two jets
+            PROCESSES:
+              - 93 93 -> 24 24 93 93:
+                  Order: {QCD: 0, EW: 4}
+
+            # final state particles cuts
+            SELECTORS:
+              - [PT, 93, 34, 10000]
+              - [Eta, 93, -4.6, 4.6]
+              - [Mass, 93, 93, 480, 10000]
+              - [DY, 93, 93, 1.9, 10000]
+
+            # output settings
+            EVENT_OUTPUT: HepMC3_GenEvent[EW_WpWpjj.hepmc]
+        \end{lstlisting}
+
+        Table~\ref{tab:sherpa_WpWm_cross_section} details the absolute cross-sections for the individual $W^{+}W^{+}jj$ and $W^{-}W^{-}jj$ samples at various selection stages, with the polarization states defined in the $W^{\pm}W^{\pm}$ center-of-mass frame. The overall selection efficiency into the signal region is roughly 1\%. This low efficiency suggests that the generation-level kinematic cuts could be further optimized to improve the event generation yield.
+    \begin{table}[htpb]
+        \centering
+        \caption{Absolute cross-sections for the separate $W^{+}W^{+}jj$ and $W^{-}W^{-}jj$ samples at various selection stages simulated with \texttt{Sherpa}. Polarization states are defined in the $W^{\pm}W^{\pm}$ center-of-mass frame.}
+        \label{tab:sherpa_WpWm_cross_section}
+        \begin{tabular}{l|rrrr|rrrr}
+                       & \multicolumn{4}{c|}{$W^{+}W^{+}jj$ [fb]} & \multicolumn{4}{c}{$W^{-}W^{-}jj$ [fb]} \\
+            Stage      & LL     & LT     & TT     & Total   & LL    & LT     & TT     & Total  \\ \hline
+            Total      & 13.242 & 41.452 & 73.953 & 128.647 & 3.716 & 10.970 & 19.530 & 34.216 \\
+            Lepton cut & 0.214  & 0.529  & 1.137  & 1.880   & 0.070 & 0.191  & 0.377  & 0.639  \\
+            MET cut    & 0.161  & 0.480  & 1.037  & 1.678   & 0.058 & 0.166  & 0.337  & 0.561  \\
+            Jet cut    & 0.153  & 0.424  & 0.844  & 1.421   & 0.042 & 0.121  & 0.276  & 0.439  \\ 
+        \end{tabular}
+    \end{table}
+
+    The combined absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production are summarized in Table~\ref{tab:sherpa_WWjj_cross_section}. While the relative fractions of the polarization states remain in excellent agreement with the thesis, the combined absolute cross-section is still lower than the reference values.
+    \begin{table}[htpb]
+        \centering
+        \caption{Combined absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production simulated with \texttt{Sherpa}. Reference values from the previous thesis and relative fractions are provided at the final jet cut stage for comparison.}
+        \label{tab:sherpa_WWjj_cross_section}
+        \begin{tabular}{l|rrrr}
+            Cut               & LL [fb] & LT [fb] & TT [fb] & Total [fb] \\ \hline
+            Total             & 16.958  & 52.422  & 93.483  & 162.863    \\
+            Lepton cut        & 0.284   & 0.721   & 1.514   & 2.519      \\
+            MET cut           & 0.220   & 0.646   & 1.374   & 2.240      \\
+            Jet cut           & 0.195   & 0.545   & 1.121   & 1.860      \\ \hline
+            Jet cut (Thesis)  & 0.285   & 0.909   & 1.778   & 2.933      \\ \hline
+            Fraction          & 10.4\%  & 29.3\%  & 60.3\%  & 100\%      \\
+            Fraction (Thesis) & 9.6\%   & 30.6\%  & 59.8\%  & 100\%      \\
+        \end{tabular}
+    \end{table}
+
+    % subsection simulation_with_sherpa (end)
 
 % section monte_carlo_simulation (end)
 
