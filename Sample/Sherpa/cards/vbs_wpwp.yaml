@@ -1,0 +1,49 @@
+# Sherpa configuration for VBS W+W+jj with polarization information
+# Kinematic cuts updated for Same-sign WW analysis
+
+EVENTS: 100
+RANDOM_SEED: 1
+
+BEAMS: 2212
+BEAM_ENERGIES: 6500
+
+PDF_SET: NNPDF30_nlo_as_0118
+
+ME_GENERATORS:
+  - Comix
+COMIX_DEFAULT_GAUGE: 0
+
+# scales
+MEPS:
+  CORE_SCALE: VAR{0.5*Abs2(p[2]+p[3])} 
+
+# physical constants and width settings
+PARTICLE_DATA:
+  24: {Width: 0, Narrow: 1}   # W Boson
+  23: {Width: 0, Narrow: 1}   # Z Boson
+WIDTH_SCHEME: Fixed
+
+# decay and polarization settings
+HARD_DECAYS:
+  Enabled: true
+  Channels:
+    24,-11,12: {Status: 2}   # W+ -> e+ nu_e
+    24,-13,14: {Status: 2}   # W+ -> mu+ nu_mu
+  Pol_Cross_Section:
+    Enabled: true
+    Reference_System: [Lab, COM]
+
+# process definition: same-sign W boson pair production with two jets
+PROCESSES:
+  - 93 93 -> 24 24 93 93:
+      Order: {QCD: 0, EW: 4}
+
+# final state particles cuts
+SELECTORS:
+  - [PT, 93, 34, 10000]
+  - [Eta, 93, -4.6, 4.6]
+  - [Mass, 93, 93, 480, 10000]
+  - [DY, 93, 93, 1.9, 10000]
+
+# output settings
+EVENT_OUTPUT: HepMC3_GenEvent[EW_WpWpjj.hepmc]
