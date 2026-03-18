@@ -19,16 +19,16 @@ MEPS:
 
 # 物理常數與寬度設定：保留 Ward Identities
 PARTICLE_DATA:
-  24: {Width: 0, Narrow: 1}   # W Boson
-  23: {Width: 0, Narrow: 1}   # Z Boson
+  24: {Width: 0}   # W Boson
+  23: {Width: 0}   # Z Boson
 WIDTH_SCHEME: Fixed
 
 # 衰變通道與極化設置
 HARD_DECAYS:
   Enabled: true
   Channels:
-    -24,11,-12: {Status: 2}   # W- -> e- nubar
-    -24,13,-14: {Status: 2}   # W- -> mu- nubar
+    -24,-12,11: {Status: 2}   # W- -> nubar e-
+    -24,-14,13: {Status: 2}   # W- -> nubar mu-
   Pol_Cross_Section:
     Enabled: true
     Reference_System: [Lab, COM]
