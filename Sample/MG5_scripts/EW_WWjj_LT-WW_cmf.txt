@@ -20,8 +20,8 @@ set run_card etaj 4.6
 set run_card mmjj 480
 set run_card deltaeta 1.9
 
-set run_card etal 2.6
 set run_card ptl 26.0
+set run_card etal 2.6
 set run_card misset 29.0
 
 set run_card ptj1min 64

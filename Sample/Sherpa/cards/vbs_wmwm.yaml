@@ -46,5 +46,12 @@ SELECTORS:
   - [Mass, 93, 93, 480, 10000]
   - [DY, 93, 93, 1.9, 10000]
 
+  - VariableSelector:
+      Variable: PT
+      Flavs: 93
+      Ranges:
+        - [60.0, 10000.0]
+      Ordering: [PT_UP]
+
 # 輸出設置
 EVENT_OUTPUT: HepMC3_GenEvent[EW_WmWmjj.hepmc]
