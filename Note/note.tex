@@ -509,46 +509,40 @@
 
         Upon a detailed review of the reference thesis~\cite{stange2025longitudinal}, we identified that their reported yields and cross-sections are evaluated at the particle level rather than the reconstructed level. To perform a fair comparison, we modified our event selection framework to operate on particle-level objects.
 
-        Specifically, the variables and object collections accessed in our \verb|Delphes| analysis script were updated as follows:
+        Specifically, the variables accessed in the \verb|Delphes| analysis were updated as follows:
         \begin{itemize}
             \item \textbf{Leptons:} Reconstructed leptons (\verb|Electron| and \verb|Muon| collections) are replaced by generator-level stable final-state leptons from the \verb|Particle| branch.
             \item \textbf{Missing Transverse Momentum:} The reconstructed missing transverse energy (\verb|MissingET|) is replaced by the true missing transverse momentum (\verb|GenMissingET|).
             \item \textbf{Jets:} Reconstructed jets (\verb|Jet|) are replaced by truth-level jets (\verb|GenJet|).
         \end{itemize}
 
-        The updated absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production at the particle level are summarized in table~\ref{tab:madgraph_WWjj_cross_section_particle_level} for \verb|MadGraph| and table~\ref{tab:sherpa_WWjj_cross_section_particle_level} for \verb|Sherpa|. The relative fractions of the polarization states remain in excellent agreement with the reference thesis. However, a systematic normalization discrepancy still exists in the absolute cross-sections, suggesting that further review of the fundamental generation parameters may be required. 
+        Furthermore, the kinematic selection criteria at the particle level are different from the reconstructed-level SR selection defined in Section~\ref{sub:event_selection}. Based on the reference thesis, the particle-level selection is defined as follows:
+        \begin{itemize}
+            \item \textbf{Leptons:} Exactly two same-sign leptons with $p_{\text{T}} > 27~\mathrm{GeV}$. Muons must satisfy $\abs{\eta} < 2.5$. Electrons must satisfy $\abs{\eta} < 2.47$, excluding the transition region $1.37 \leq \abs{\eta} \leq 1.52$, with an additional restriction of $\abs{\eta} < 1.37$ for the $ee$ channel.
 
+            \item \textbf{Dilepton Mass \& $Z$-veto:} The dilepton invariant mass must be $m_{\ell\ell} > 20~\mathrm{GeV}$. Additionally, a $Z$-boson veto is exclusively applied to the $ee$ channel, requiring $\abs{m_{ee} - m_{Z}} > 15~\mathrm{GeV}$ to suppress background contributions.
+
+            \item \textbf{Missing Transverse Momentum:} $E_{\text{T}}^{\text{miss}} \geq 30~\mathrm{GeV}$.
+
+            \item \textbf{Jets:} At least two jets are required. The leading and subleading jets must satisfy $p_{\text{T}} > 65~\mathrm{GeV}$ and $p_{\text{T}} > 35~\mathrm{GeV}$, respectively. The dijet invariant mass threshold is relaxed to $m_{jj} \geq 200~\mathrm{GeV}$, and the rapidity difference must be $\Delta y_{jj} > 2$.
+        \end{itemize}
+
+        The updated absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production at the particle level are summarized in Table~\ref{tab:combined_WWjj_cross_section_particle_level}. Although the relative fractions of the polarization states remain in excellent agreement with the reference thesis, a systematic normalization discrepancy still exists in the absolute cross-sections.
         \begin{table}[htpb]
             \centering
-            \caption{Combined absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production simulated with \texttt{MadGraph} using \textbf{particle-level selection}. Reference values from the previous thesis and relative fractions are provided at the final jet cut stage for comparison.}
-            \label{tab:madgraph_WWjj_cross_section_particle_level}
-            \begin{tabular}{l|rrrr}
+            \caption{Combined absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production simulated with \texttt{MadGraph} and \texttt{Sherpa} using \textbf{particle-level selection}. Reference values from the previous thesis and relative fractions are provided at the final jet cut stage for comparison.}
+            \label{tab:combined_WWjj_cross_section_particle_level}
+            \begin{tabular}{l|rrrr|rrrr}
                 \hline
-                Cut               & LL [fb] & LT [fb] & TT [fb] & Total [fb] \\ \hline
-                Total             & 0.360   & 1.127   & 2.079   & 3.567      \\
-                Lepton cut        & 0.310   & 0.978   & 1.852   & 3.139      \\
-                MET cut           & 0.302   & 0.960   & 1.821   & 3.082      \\
-                Jet cut           & 0.212   & 0.654   & 1.127   & 1.993      \\ \hline
-                Jet cut (Thesis)  & 0.277   & 0.874   & 1.744   & 2.895      \\ \hline
-                Fraction          & 10.7\%  & 32.8\%  & 56.6\%  & 100\%      \\
-                Fraction (Thesis) & 9.6\%   & 30.2\%  & 60.2\%  & 100\%      \\ \hline
-            \end{tabular}
-        \end{table}
-
-        \begin{table}[htpb]
-            \centering
-            \caption{Combined absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production simulated with \texttt{Sherpa} using \textbf{particle-level selection}. Reference values from the previous thesis and relative fractions are provided at the final jet cut stage for comparison.}
-            \label{tab:sherpa_WWjj_cross_section_particle_level}
-            \begin{tabular}{l|rrrr}
-                \hline
-                Cut               & LL [fb] & LT [fb] & TT [fb] & Total [fb] \\ \hline
-                Total             & 0.727   & 2.205   & 3.882   & 6.814      \\
-                Lepton cut        & 0.339   & 1.031   & 1.928   & 3.298      \\
-                MET cut           & 0.279   & 0.895   & 1.679   & 2.853      \\
-                Jet cut           & 0.193   & 0.581   & 0.995   & 1.769      \\ \hline
-                Jet cut (Thesis)  & 0.285   & 0.909   & 1.778   & 2.933      \\ \hline
-                Fraction          & 10.9\%  & 32.9\%  & 56.3\%  & 100\%      \\
-                Fraction (Thesis) & 9.6\%   & 30.6\%  & 59.8\%  & 100\%      \\ \hline
+                                  & \multicolumn{4}{c|}{MadGraph [fb]} & \multicolumn{4}{c}{Sherpa [fb]}         \\
+                Cut               & LL      & LT      & TT     & Total & LL     & LT     & TT     & Total        \\ \hline
+                Total             & 0.361   & 1.124   & 2.084  & 3.568 & 0.727  & 2.205  & 3.882  & 6.814        \\
+                Lepton cut        & 0.251   & 0.808   & 1.568  & 2.627 & 0.286  & 0.886  & 1.704  & 2.877        \\
+                MET cut           & 0.244   & 0.794   & 1.540  & 2.578 & 0.236  & 0.771  & 1.485  & 2.491        \\
+                Jet cut           & 0.194   & 0.593   & 1.080  & 1.868 & 0.184  & 0.556  & 0.989  & 1.730        \\ \hline
+                Jet cut (Thesis)  & 0.277   & 0.874   & 1.744  & 2.895 & 0.285  & 0.909  & 1.778  & 2.972        \\ \hline
+                Fraction          & 10.4\%  & 31.8\%  & 57.8\% & 100\% & 10.7\% & 32.2\% & 57.2\% & 100\%        \\
+                Fraction (Thesis) & 9.6\%   & 30.2\%  & 60.2\% & 100\% & 9.6\%  & 30.6\% & 59.8\% & 100\%        \\ \hline
             \end{tabular}
         \end{table}
 
