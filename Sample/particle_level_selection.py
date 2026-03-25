@@ -55,7 +55,9 @@ _setup_delphes()
 
 ELECTRON_MASS = 0.000511
 MUON_MASS = 0.10566
-FINAL_STATE_STATUSES = {1, 23}
+Z_MASS = 91.1876  # GeV
+Z_VETO_WINDOW = 15.0  # GeV
+FINAL_STATE_STATUSES = {1}
 
 
 def _make_p4(pt: float, eta: float, phi: float, mass: float) -> "ROOT.TLorentzVector":
@@ -89,8 +91,7 @@ def _update_top2(cands, cand) -> None:
 
 
 def _collect_particle_leptons(event) -> List[Dict[str, object]]:
-    top2_w_parent = []
-    top2_fallback = []
+    candidates = []
 
     particles = event.Particle
     n_particles = int(particles.GetEntries())
@@ -112,29 +113,19 @@ def _collect_particle_leptons(event) -> List[Dict[str, object]]:
             if 1.37 < eta_abs < 1.52:
                 continue
             mass = ELECTRON_MASS
+            lepton_type = "electron"
         else:
             if pt <= 27.0 or eta_abs >= 2.5:
                 continue
             mass = MUON_MASS
+            lepton_type = "muon"
 
         p4 = _make_p4(pt, eta, float(p.Phi), mass)
         charge = -1 if pid > 0 else 1
-        candidate = (pt, p4, charge)
-        _update_top2(top2_fallback, candidate)
+        candidates.append((pt, p4, charge, lepton_type))
 
-        has_w_parent = False
-        m1 = int(p.M1)
-        if 0 <= m1 < n_particles:
-            has_w_parent = abs(int(particles.At(m1).PID)) == 24
-        if not has_w_parent:
-            m2 = int(p.M2)
-            if 0 <= m2 < n_particles:
-                has_w_parent = abs(int(particles.At(m2).PID)) == 24
-        if has_w_parent:
-            _update_top2(top2_w_parent, candidate)
-
-    selected = top2_w_parent if top2_w_parent else top2_fallback
-    return [{"p4": c[1], "charge": c[2]} for c in selected]
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    return [{"p4": c[1], "charge": c[2], "type": c[3]} for c in candidates]
 
 
 def _collect_gen_missing_et(event) -> Tuple[float, float]:
@@ -153,16 +144,20 @@ def _collect_gen_jets(event) -> List["ROOT.TLorentzVector"]:
     if not hasattr(event, "GenJet"):
         raise RuntimeError("GenJet branch is missing in the Delphes tree.")
 
-    top2_jets = []
+    jets_out = []
     jets = event.GenJet
     n_jets = int(jets.GetEntries())
     for i in range(n_jets):
         j = jets.At(i)
-        if abs(j.Eta) < 4.5 and j.PT > 35.0:
+        if j.PT > 35.0:
             pt = float(j.PT)
             p4 = _make_p4(pt, float(j.Eta), float(j.Phi), float(j.Mass))
-            _update_top2(top2_jets, (pt, p4))
-    return [c[1] for c in top2_jets]
+            jets_out.append((pt, p4))
+
+    # Keep all jets passing baseline pT, sorted by pT descending.
+    # Overlap removal must happen before picking leading/subleading jets.
+    jets_out.sort(key=lambda x: x[0], reverse=True)
+    return [c[1] for c in jets_out]
 
 
 def pass_particle_level_sr(event) -> Tuple[int, Optional[Dict[str, float]]]:
@@ -173,25 +168,49 @@ def pass_particle_level_sr(event) -> Tuple[int, Optional[Dict[str, float]]]:
       1: pass lepton, fail MET
       2: pass MET, fail jet cuts
       3: pass all SR cuts
+    
+    Lepton selection:
+      - Exactly 2 same-sign leptons with pT > 27 GeV
+      - Muons: |η| < 2.5
+      - Electrons: |η| < 2.47 (excluding 1.37 ≤ |η| ≤ 1.52)
+      - For ee channel: additional constraint |η| < 1.37
+      - Dilepton mass: m_ℓℓ > 20 GeV
+      - For ee channel: Z-veto |m_ee - m_Z| > 15 GeV
     """
     leptons = _collect_particle_leptons(event)
-    if len(leptons) < 2:
+    if len(leptons) != 2:
         return 0, None
 
     l1, l2 = leptons[0], leptons[1]
     if int(l1["charge"]) != int(l2["charge"]):
         return 0, None
 
+    # Check if both leptons are electrons (ee channel)
+    is_ee_channel = l1["type"] == "electron" and l2["type"] == "electron"
+    
+    # For ee channel, apply additional eta constraint
+    if is_ee_channel:
+        eta_l1_abs = abs(l1["p4"].Eta())
+        eta_l2_abs = abs(l2["p4"].Eta())
+        if eta_l1_abs >= 1.37 or eta_l2_abs >= 1.37:
+            return 0, None
+
     ll_p4 = l1["p4"] + l2["p4"]
     ll_mass = ll_p4.M()
     if ll_mass <= 20.0:
         return 0, None
+    
+    # Apply Z-veto only for ee channel
+    if is_ee_channel:
+        if abs(ll_mass - Z_MASS) <= Z_VETO_WINDOW:
+            return 0, None
 
     met, met_phi = _collect_gen_missing_et(event)
-    if met <= 30.0:
+    if met < 30.0:
         return 1, None
 
     jets = _collect_gen_jets(event)
+
     if len(jets) < 2:
         return 2, None
 
@@ -199,7 +218,7 @@ def pass_particle_level_sr(event) -> Tuple[int, Optional[Dict[str, float]]]:
         return 2, None
 
     j1, j2 = jets[0], jets[1]
-    if (j1 + j2).M() <= 500.0:
+    if (j1 + j2).M() < 200.0:
         return 2, None
     if abs(j1.Rapidity() - j2.Rapidity()) <= 2.0:
         return 2, None
@@ -349,6 +368,18 @@ def process_root_file(root_path: str, max_events: Optional[int] = None) -> Dict[
         "MET cut": 0,
         "jet cut": 0,
     }
+    stage_table = {
+        "Total": 0,
+        "Exactly 2 leptons": 0,
+        "Same-sign charge": 0,
+        "m_ll > 20 GeV": 0,
+        "Lepton kinematics/charge": 0,  # Includes ee channel eta < 1.37 and Z-veto
+        "MET >= 30": 0,
+        "After overlap + >=2 jets": 0,
+        "Jet pT cuts": 0,
+        "mjj >= 200": 0,
+        "|dyjj| > 2": 0,
+    }
 
     deta_ll: List[float] = []
     dphi_jj: List[float] = []
@@ -363,6 +394,7 @@ def process_root_file(root_path: str, max_events: Optional[int] = None) -> Dict[
     for i in range(n_to_process):
         tree.GetEntry(i)
         cutflow["Total"] += 1
+        stage_table["Total"] += 1
 
         stage, obs = pass_particle_level_sr(tree)
         if stage >= 1:
@@ -379,12 +411,64 @@ def process_root_file(root_path: str, max_events: Optional[int] = None) -> Dict[
                 m_jj.append(obs["m_jj"])
                 deltaR_jj.append(obs["deltaR_jj"])
 
+        leptons = _collect_particle_leptons(tree)
+        if len(leptons) == 2:
+            stage_table["Exactly 2 leptons"] += 1
+
+            l1, l2 = leptons[0], leptons[1]
+            if int(l1["charge"]) == int(l2["charge"]):
+                stage_table["Same-sign charge"] += 1
+                
+                ll_p4 = l1["p4"] + l2["p4"]
+                ll_mass = ll_p4.M()
+                if ll_mass > 20.0:
+                    stage_table["m_ll > 20 GeV"] += 1
+                    
+                    # Check ee channel constraints
+                    is_ee_channel = l1["type"] == "electron" and l2["type"] == "electron"
+                    lepton_cuts_pass = False
+                    
+                    if not is_ee_channel:
+                        # Non-ee channels pass after m_ll and same-sign checks
+                        lepton_cuts_pass = True
+                        stage_table["Lepton kinematics/charge"] += 1
+                    else:
+                        # ee channel: check additional eta constraint and Z-veto
+                        eta_l1_abs = abs(l1["p4"].Eta())
+                        eta_l2_abs = abs(l2["p4"].Eta())
+                        if eta_l1_abs < 1.37 and eta_l2_abs < 1.37:
+                            # ee channel: check Z-veto
+                            if abs(ll_mass - Z_MASS) > Z_VETO_WINDOW:
+                                stage_table["Lepton kinematics/charge"] += 1
+                                lepton_cuts_pass = True
+
+                    if lepton_cuts_pass:
+                        met, _ = _collect_gen_missing_et(tree)
+                        if met >= 30.0:
+                            stage_table["MET >= 30"] += 1
+
+                            jets = _collect_gen_jets(tree)
+
+                            if len(jets) >= 2:
+                                stage_table["After overlap + >=2 jets"] += 1
+
+                                if jets[0].Pt() > 65.0 and jets[1].Pt() > 35.0:
+                                    stage_table["Jet pT cuts"] += 1
+
+                                    j1, j2 = jets[0], jets[1]
+                                    if (j1 + j2).M() >= 200.0:
+                                        stage_table["mjj >= 200"] += 1
+
+                                        if abs(j1.Rapidity() - j2.Rapidity()) > 2.0:
+                                            stage_table["|dyjj| > 2"] += 1
+
     f.Close()
 
     return {
         "root_path": root_path,
         "events_processed": n_to_process,
         "cutflow number": cutflow,
+        "stage comparison": stage_table,
         "deta_ll": np.asarray(deta_ll, dtype=np.float64),
         "dphi_jj": np.asarray(dphi_jj, dtype=np.float64),
         "mT": np.asarray(mT, dtype=np.float64),
@@ -436,6 +520,35 @@ def _print_cutflow(path: str, cutflow: Dict[str, int]) -> None:
         print(f"  {stage:<12} : {count:8d} ({eff:6.2f}%)")
 
 
+def _print_stage_comparison(path: str, stage_table: Dict[str, int]) -> None:
+    total = stage_table["Total"]
+    print(f"\n[{path}] Stage-by-stage comparison table")
+    print(f"{'Stage':<32} {'Pass':>10} {'Eff(%)':>10} {'Drop from prev':>15}")
+    print("-" * 72)
+
+    ordered = [
+        "Total",
+        "Exactly 2 leptons",
+        "Same-sign charge",
+        "m_ll > 20 GeV",
+        "Lepton kinematics/charge",
+        "MET >= 30",
+        "After overlap + >=2 jets",
+        "Jet pT cuts",
+        "mjj >= 200",
+        "|dyjj| > 2",
+    ]
+
+    prev = total
+    for stage in ordered:
+        if stage in stage_table:
+            passed = int(stage_table[stage])
+            eff = (100.0 * passed / total) if total > 0 else 0.0
+            drop = int(prev - passed)
+            print(f"{stage:<32} {passed:>10d} {eff:>9.3f}% {drop:>15d}")
+            prev = passed
+
+
 def _classify_sample_tag(root_path: str) -> str:
     if "/MG5/" in root_path or root_path.startswith("MG5/"):
         return "madgraph"
@@ -466,6 +579,7 @@ def _process_and_save_one(
         "sample_type": sample_tag,
         "out_path": out_path,
         "cutflow": result["cutflow number"],
+        "stage_table": result["stage comparison"],
     }
 
 
@@ -530,6 +644,7 @@ def main() -> None:
                 max_events=args.max_events,
             )
             _print_cutflow(summary["root_path"], summary["cutflow"])
+            _print_stage_comparison(summary["root_path"], summary["stage_table"])
             print(f"  Label: {summary['label']}")
             print(f"  Sample: {summary['sample_type']}")
             print(f"  Saved: {summary['out_path']}")
@@ -556,6 +671,7 @@ def main() -> None:
                 continue
 
             _print_cutflow(summary["root_path"], summary["cutflow"])
+            _print_stage_comparison(summary["root_path"], summary["stage_table"])
             print(f"  Label: {summary['label']}")
             print(f"  Sample: {summary['sample_type']}")
             print(f"  Saved: {summary['out_path']}")
