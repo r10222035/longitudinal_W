@@ -19,11 +19,12 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 # 讀取可選參數，若未提供則使用預設值
-EVENTS_PER_JOB=${2:-200}
-NUM_JOBS=${3:-50}
+EVENTS_PER_JOB=${2:-100}
+NUM_JOBS=${3:-100}
 
 # --- 2. 建立工作環境 ---
 # 自動抓取當前執行指令的所在目錄作為 Sherpa 的 Working Directory
+SHERPA_EXEC="/home/r10222035/Software/sherpa-mpi/bin/Sherpa"
 RUN_DIR=$PWD
 OUTPUT_DIR="./hepmc_data"
 
@@ -50,7 +51,7 @@ do
     # 執行 Sherpa:
     # -p 指定為當前目錄 (讀取此目錄下的 Process/ 與 Results.db)
     # -f 讀取絕對路徑的 YAML 檔
-    Sherpa -p "$RUN_DIR" \
+    $SHERPA_EXEC -p "$RUN_DIR" \
            -f "$CONFIG_FILE" \
            EVENTS=$EVENTS_PER_JOB \
            RANDOM_SEED=$SEED \

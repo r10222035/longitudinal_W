@@ -15,7 +15,10 @@ import concurrent.futures
 import glob
 import math
 import os
+import multiprocessing
 from typing import Dict, List, Optional, Tuple
+
+from tqdm import tqdm
 
 import numpy as np
 
@@ -391,7 +394,7 @@ def process_root_file(root_path: str, max_events: Optional[int] = None) -> Dict[
     n_entries = int(tree.GetEntries())
     n_to_process = n_entries if max_events is None else min(n_entries, max_events)
 
-    for i in range(n_to_process):
+    for i in tqdm(range(n_to_process)):
         tree.GetEntry(i)
         cutflow["Total"] += 1
         stage_table["Total"] += 1
@@ -478,6 +481,235 @@ def process_root_file(root_path: str, max_events: Optional[int] = None) -> Dict[
     }
 
 
+def _init_cutflow() -> Dict[str, int]:
+    return {
+        "Total": 0,
+        "lepton cut": 0,
+        "MET cut": 0,
+        "jet cut": 0,
+    }
+
+
+def _init_stage_table() -> Dict[str, int]:
+    return {
+        "Total": 0,
+        "Exactly 2 leptons": 0,
+        "Same-sign charge": 0,
+        "m_ll > 20 GeV": 0,
+        "Lepton kinematics/charge": 0,
+        "MET >= 30": 0,
+        "After overlap + >=2 jets": 0,
+        "Jet pT cuts": 0,
+        "mjj >= 200": 0,
+        "|dyjj| > 2": 0,
+    }
+
+
+def _process_root_chunk(root_path: str, start: int, end: int) -> Dict[str, object]:
+    """Process a half-open event interval [start, end) for one ROOT file."""
+    f = ROOT.TFile.Open(root_path)
+    if not f or f.IsZombie():
+        raise RuntimeError(f"Cannot open ROOT file: {root_path}")
+
+    tree = f.Get("Delphes")
+    if tree is None:
+        f.Close()
+        raise RuntimeError(f"Missing Delphes tree: {root_path}")
+
+    n_entries = int(tree.GetEntries())
+    i0 = max(0, int(start))
+    i1 = min(n_entries, int(end))
+
+    cutflow = _init_cutflow()
+    stage_table = _init_stage_table()
+
+    deta_ll: List[float] = []
+    dphi_jj: List[float] = []
+    mT: List[float] = []
+    pt_j2: List[float] = []
+    m_jj: List[float] = []
+    deltaR_jj: List[float] = []
+
+    for i in range(i0, i1):
+        tree.GetEntry(i)
+        cutflow["Total"] += 1
+        stage_table["Total"] += 1
+
+        stage, obs = pass_particle_level_sr(tree)
+        if stage >= 1:
+            cutflow["lepton cut"] += 1
+        if stage >= 2:
+            cutflow["MET cut"] += 1
+        if stage >= 3:
+            cutflow["jet cut"] += 1
+            if obs is not None:
+                deta_ll.append(obs["deta_ll"])
+                dphi_jj.append(obs["dphi_jj"])
+                mT.append(obs["mT"])
+                pt_j2.append(obs["pt_j2"])
+                m_jj.append(obs["m_jj"])
+                deltaR_jj.append(obs["deltaR_jj"])
+
+        leptons = _collect_particle_leptons(tree)
+        if len(leptons) == 2:
+            stage_table["Exactly 2 leptons"] += 1
+
+            l1, l2 = leptons[0], leptons[1]
+            if int(l1["charge"]) == int(l2["charge"]):
+                stage_table["Same-sign charge"] += 1
+
+                ll_p4 = l1["p4"] + l2["p4"]
+                ll_mass = ll_p4.M()
+                if ll_mass > 20.0:
+                    stage_table["m_ll > 20 GeV"] += 1
+
+                    is_ee_channel = l1["type"] == "electron" and l2["type"] == "electron"
+                    lepton_cuts_pass = False
+
+                    if not is_ee_channel:
+                        lepton_cuts_pass = True
+                        stage_table["Lepton kinematics/charge"] += 1
+                    else:
+                        eta_l1_abs = abs(l1["p4"].Eta())
+                        eta_l2_abs = abs(l2["p4"].Eta())
+                        if eta_l1_abs < 1.37 and eta_l2_abs < 1.37:
+                            if abs(ll_mass - Z_MASS) > Z_VETO_WINDOW:
+                                stage_table["Lepton kinematics/charge"] += 1
+                                lepton_cuts_pass = True
+
+                    if lepton_cuts_pass:
+                        met, _ = _collect_gen_missing_et(tree)
+                        if met >= 30.0:
+                            stage_table["MET >= 30"] += 1
+
+                            jets = _collect_gen_jets(tree)
+
+                            if len(jets) >= 2:
+                                stage_table["After overlap + >=2 jets"] += 1
+
+                                if jets[0].Pt() > 65.0 and jets[1].Pt() > 35.0:
+                                    stage_table["Jet pT cuts"] += 1
+
+                                    j1, j2 = jets[0], jets[1]
+                                    if (j1 + j2).M() >= 200.0:
+                                        stage_table["mjj >= 200"] += 1
+
+                                        if abs(j1.Rapidity() - j2.Rapidity()) > 2.0:
+                                            stage_table["|dyjj| > 2"] += 1
+
+    f.Close()
+
+    return {
+        "events_processed": i1 - i0,
+        "cutflow number": cutflow,
+        "stage comparison": stage_table,
+        "deta_ll": np.asarray(deta_ll, dtype=np.float64),
+        "dphi_jj": np.asarray(dphi_jj, dtype=np.float64),
+        "mT": np.asarray(mT, dtype=np.float64),
+        "pt_j2": np.asarray(pt_j2, dtype=np.float64),
+        "m_jj": np.asarray(m_jj, dtype=np.float64),
+        "deltaR_jj": np.asarray(deltaR_jj, dtype=np.float64),
+    }
+
+
+def _merge_chunk_results(root_path: str, chunks: List[Dict[str, object]]) -> Dict[str, object]:
+    cutflow = _init_cutflow()
+    stage_table = _init_stage_table()
+    obs_store: Dict[str, List[np.ndarray]] = {
+        "deta_ll": [],
+        "dphi_jj": [],
+        "mT": [],
+        "pt_j2": [],
+        "m_jj": [],
+        "deltaR_jj": [],
+    }
+
+    events_processed = 0
+    for chunk in chunks:
+        events_processed += int(chunk.get("events_processed", 0))
+        c = chunk.get("cutflow number", {})
+        s = chunk.get("stage comparison", {})
+
+        for k in cutflow:
+            cutflow[k] += int(c.get(k, 0))
+        for k in stage_table:
+            stage_table[k] += int(s.get(k, 0))
+
+        for key in obs_store:
+            arr = np.asarray(chunk.get(key, np.asarray([], dtype=np.float64)), dtype=np.float64)
+            obs_store[key].append(arr)
+
+    return {
+        "root_path": root_path,
+        "events_processed": events_processed,
+        "cutflow number": cutflow,
+        "stage comparison": stage_table,
+        "deta_ll": np.concatenate(obs_store["deta_ll"]) if obs_store["deta_ll"] else np.asarray([], dtype=np.float64),
+        "dphi_jj": np.concatenate(obs_store["dphi_jj"]) if obs_store["dphi_jj"] else np.asarray([], dtype=np.float64),
+        "mT": np.concatenate(obs_store["mT"]) if obs_store["mT"] else np.asarray([], dtype=np.float64),
+        "pt_j2": np.concatenate(obs_store["pt_j2"]) if obs_store["pt_j2"] else np.asarray([], dtype=np.float64),
+        "m_jj": np.concatenate(obs_store["m_jj"]) if obs_store["m_jj"] else np.asarray([], dtype=np.float64),
+        "deltaR_jj": np.concatenate(obs_store["deltaR_jj"]) if obs_store["deltaR_jj"] else np.asarray([], dtype=np.float64),
+    }
+
+
+def process_root_file_parallel(
+    root_path: str,
+    max_events: Optional[int],
+    chunk_workers: int,
+) -> Dict[str, object]:
+    """Parallelize one ROOT file by splitting events into chunks."""
+    f = ROOT.TFile.Open(root_path)
+    if not f or f.IsZombie():
+        raise RuntimeError(f"Cannot open ROOT file: {root_path}")
+
+    tree = f.Get("Delphes")
+    if tree is None:
+        f.Close()
+        raise RuntimeError(f"Missing Delphes tree: {root_path}")
+
+    n_entries = int(tree.GetEntries())
+    f.Close()
+
+    n_to_process = n_entries if max_events is None else min(n_entries, max_events)
+    if n_to_process <= 0:
+        return {
+            "root_path": root_path,
+            "events_processed": 0,
+            "cutflow number": _init_cutflow(),
+            "stage comparison": _init_stage_table(),
+            "deta_ll": np.asarray([], dtype=np.float64),
+            "dphi_jj": np.asarray([], dtype=np.float64),
+            "mT": np.asarray([], dtype=np.float64),
+            "pt_j2": np.asarray([], dtype=np.float64),
+            "m_jj": np.asarray([], dtype=np.float64),
+            "deltaR_jj": np.asarray([], dtype=np.float64),
+        }
+
+    workers = max(1, int(chunk_workers))
+    workers = min(workers, n_to_process)
+
+    if workers == 1:
+        return process_root_file(root_path, max_events=max_events)
+
+    chunk_size = (n_to_process + workers - 1) // workers
+    ranges: List[Tuple[int, int]] = []
+    for start in range(0, n_to_process, chunk_size):
+        end = min(n_to_process, start + chunk_size)
+        ranges.append((start, end))
+
+    chunk_results: List[Dict[str, object]] = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+        futures = {
+            executor.submit(_process_root_chunk, root_path, start, end): (start, end)
+            for start, end in ranges
+        }
+        for future in concurrent.futures.as_completed(futures):
+            chunk_results.append(future.result())
+
+    return _merge_chunk_results(root_path, chunk_results)
+
+
 def _infer_label(root_path: str) -> str:
     base = os.path.basename(root_path)
     if base.endswith(".root"):
@@ -562,8 +794,13 @@ def _process_and_save_one(
     output_dir: str,
     label_prefix: str,
     max_events: Optional[int],
+    chunk_workers: int,
 ) -> Dict[str, object]:
-    result = process_root_file(root_path, max_events=max_events)
+    result = process_root_file_parallel(
+        root_path,
+        max_events=max_events,
+        chunk_workers=chunk_workers,
+    )
     label = _infer_label(root_path)
     sample_tag = _classify_sample_tag(root_path)
     result["sample_type"] = sample_tag
@@ -581,6 +818,90 @@ def _process_and_save_one(
         "cutflow": result["cutflow number"],
         "stage_table": result["stage comparison"],
     }
+
+
+def _merge_saved_results(saved_paths: List[str]) -> Dict[str, object]:
+    merged_cutflow = {
+        "Total": 0,
+        "lepton cut": 0,
+        "MET cut": 0,
+        "jet cut": 0,
+    }
+    merged_stage_table = {
+        "Total": 0,
+        "Exactly 2 leptons": 0,
+        "Same-sign charge": 0,
+        "m_ll > 20 GeV": 0,
+        "Lepton kinematics/charge": 0,
+        "MET >= 30": 0,
+        "After overlap + >=2 jets": 0,
+        "Jet pT cuts": 0,
+        "mjj >= 200": 0,
+        "|dyjj| > 2": 0,
+    }
+    merged_obs = {
+        "deta_ll": [],
+        "dphi_jj": [],
+        "mT": [],
+        "pt_j2": [],
+        "m_jj": [],
+        "deltaR_jj": [],
+    }
+
+    merged_root_paths: List[str] = []
+    total_events_processed = 0
+
+    for npy_path in saved_paths:
+        payload = np.load(npy_path, allow_pickle=True).item()
+
+        cutflow = payload.get("cutflow number", {})
+        stage_table = payload.get("stage comparison", {})
+
+        for key in merged_cutflow:
+            merged_cutflow[key] += int(cutflow.get(key, 0))
+        for key in merged_stage_table:
+            merged_stage_table[key] += int(stage_table.get(key, 0))
+
+        for obs_key in merged_obs:
+            arr = payload.get(obs_key, np.asarray([], dtype=np.float64))
+            merged_obs[obs_key].append(np.asarray(arr, dtype=np.float64))
+
+        root_path = payload.get("root_path")
+        if isinstance(root_path, str):
+            merged_root_paths.append(root_path)
+
+        total_events_processed += int(payload.get("events_processed", 0))
+
+    return {
+        "root_paths": merged_root_paths,
+        "n_files": len(saved_paths),
+        "events_processed": total_events_processed,
+        "cutflow number": merged_cutflow,
+        "stage comparison": merged_stage_table,
+        "deta_ll": np.concatenate(merged_obs["deta_ll"]) if merged_obs["deta_ll"] else np.asarray([], dtype=np.float64),
+        "dphi_jj": np.concatenate(merged_obs["dphi_jj"]) if merged_obs["dphi_jj"] else np.asarray([], dtype=np.float64),
+        "mT": np.concatenate(merged_obs["mT"]) if merged_obs["mT"] else np.asarray([], dtype=np.float64),
+        "pt_j2": np.concatenate(merged_obs["pt_j2"]) if merged_obs["pt_j2"] else np.asarray([], dtype=np.float64),
+        "m_jj": np.concatenate(merged_obs["m_jj"]) if merged_obs["m_jj"] else np.asarray([], dtype=np.float64),
+        "deltaR_jj": np.concatenate(merged_obs["deltaR_jj"]) if merged_obs["deltaR_jj"] else np.asarray([], dtype=np.float64),
+    }
+
+
+def _save_merged_results(saved_paths: List[str], output_dir: str, label_prefix: str) -> Optional[str]:
+    if not saved_paths:
+        return None
+
+    merged = _merge_saved_results(saved_paths)
+    out_path = os.path.join(output_dir, f"{label_prefix}_merged.npy")
+    np.save(out_path, merged)
+
+    print("\n[Merged summary]")
+    print(f"  Files merged: {merged['n_files']}")
+    print(f"  Events merged: {merged['events_processed']}")
+    _print_cutflow("ALL", merged["cutflow number"])
+    _print_stage_comparison("ALL", merged["stage comparison"])
+    print(f"  Saved merged: {out_path}")
+    return out_path
 
 
 def main() -> None:
@@ -620,6 +941,17 @@ def main() -> None:
         default=1,
         help="Number of worker processes for parallel file processing.",
     )
+    parser.add_argument(
+        "--chunks-per-file",
+        type=int,
+        default=1,
+        help="Number of processes used to split one ROOT file into event chunks.",
+    )
+    parser.add_argument(
+        "--merge-all",
+        action="store_true",
+        help="Also merge all per-file outputs into one merged NPY file.",
+    )
 
     args = parser.parse_args()
 
@@ -635,6 +967,9 @@ def main() -> None:
     os.makedirs(args.output_dir, exist_ok=True)
 
     jobs = max(1, int(args.jobs))
+    chunks_per_file = max(1, int(args.chunks_per_file))
+    saved_paths: List[str] = []
+
     if jobs == 1 or len(root_files) == 1:
         for root_path in root_files:
             summary = _process_and_save_one(
@@ -642,12 +977,16 @@ def main() -> None:
                 output_dir=args.output_dir,
                 label_prefix=args.label_prefix,
                 max_events=args.max_events,
+                chunk_workers=chunks_per_file,
             )
+            saved_paths.append(summary["out_path"])
             _print_cutflow(summary["root_path"], summary["cutflow"])
             _print_stage_comparison(summary["root_path"], summary["stage_table"])
             print(f"  Label: {summary['label']}")
             print(f"  Sample: {summary['sample_type']}")
             print(f"  Saved: {summary['out_path']}")
+        if args.merge_all:
+            _save_merged_results(saved_paths, args.output_dir, args.label_prefix)
         return
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=jobs) as executor:
@@ -658,6 +997,7 @@ def main() -> None:
                 args.output_dir,
                 args.label_prefix,
                 args.max_events,
+                chunks_per_file,
             ): root_path
             for root_path in root_files
         }
@@ -670,11 +1010,15 @@ def main() -> None:
                 print(f"\n[{root_path}] failed: {exc}")
                 continue
 
+            saved_paths.append(summary["out_path"])
             _print_cutflow(summary["root_path"], summary["cutflow"])
             _print_stage_comparison(summary["root_path"], summary["stage_table"])
             print(f"  Label: {summary['label']}")
             print(f"  Sample: {summary['sample_type']}")
             print(f"  Saved: {summary['out_path']}")
+
+    if args.merge_all:
+        _save_merged_results(saved_paths, args.output_dir, args.label_prefix)
 
 
 if __name__ == "__main__":
