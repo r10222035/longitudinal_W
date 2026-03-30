@@ -527,24 +527,29 @@
             \item \textbf{Jets:} At least two jets are required. The leading and subleading jets must satisfy $p_{\text{T}} > 65~\mathrm{GeV}$ and $p_{\text{T}} > 35~\mathrm{GeV}$, respectively. The dijet invariant mass threshold is relaxed to $m_{jj} \geq 200~\mathrm{GeV}$, and the rapidity difference must be $\Delta y_{jj} > 2$.
         \end{itemize}
 
+        The PDF sets are also updated to the same as the reference thesis~\cite{stange2025longitudinal}. We use the \verb|NNPDF23_nlo_as_0119| PDF set~\cite{Ball:2012cx} for \verb|MadGraph| and \verb|PDF4LHC21_40_pdfas| PDF set~\cite{PDF4LHCWorkingGroup:2022cjn}for \verb|Sherpa|.
+
         The updated absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production at the particle level are summarized in Table~\ref{tab:combined_WWjj_cross_section_particle_level}. Although the relative fractions of the polarization states remain in excellent agreement with the reference thesis, a systematic normalization discrepancy still exists in the absolute cross-sections.
+
         \begin{table}[htpb]
             \centering
             \caption{Combined absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production simulated with \texttt{MadGraph} and \texttt{Sherpa} using \textbf{particle-level selection}. Reference values from the previous thesis and relative fractions are provided at the final jet cut stage for comparison.}
             \label{tab:combined_WWjj_cross_section_particle_level}
             \begin{tabular}{l|rrrr|rrrr}
                 \hline
-                                  & \multicolumn{4}{c|}{MadGraph [fb]} & \multicolumn{4}{c}{Sherpa [fb]}         \\
-                Cut               & LL      & LT      & TT     & Total & LL     & LT     & TT     & Total        \\ \hline
-                Total             & 0.361   & 1.124   & 2.084  & 3.568 & 0.727  & 2.205  & 3.882  & 6.814        \\
-                Lepton cut        & 0.251   & 0.808   & 1.568  & 2.627 & 0.286  & 0.886  & 1.704  & 2.877        \\
-                MET cut           & 0.244   & 0.794   & 1.540  & 2.578 & 0.236  & 0.771  & 1.485  & 2.491        \\
-                Jet cut           & 0.194   & 0.593   & 1.080  & 1.868 & 0.184  & 0.556  & 0.989  & 1.730        \\ \hline
-                Jet cut (Thesis)  & 0.277   & 0.874   & 1.744  & 2.895 & 0.285  & 0.909  & 1.778  & 2.972        \\ \hline
-                Fraction          & 10.4\%  & 31.8\%  & 57.8\% & 100\% & 10.7\% & 32.2\% & 57.2\% & 100\%        \\
-                Fraction (Thesis) & 9.6\%   & 30.2\%  & 60.2\% & 100\% & 9.6\%  & 30.6\% & 59.8\% & 100\%        \\ \hline
+                Cut               & \multicolumn{4}{c|}{MadGraph [fb]} & \multicolumn{4}{c}{Sherpa [fb]}  \\
+                                  & LL      & LT      & TT     & Total & LL     & LT     & TT     & Total \\ \hline
+                Total             & 0.383   & 1.188   & 2.185  & 3.755 & 0.729  & 2.252  & 3.989  & 6.970 \\
+                Lepton cut        & 0.267   & 0.850   & 1.665  & 2.782 & 0.291  & 0.906  & 1.746  & 2.943 \\
+                MET cut           & 0.260   & 0.834   & 1.636  & 2.731 & 0.240  & 0.786  & 1.522  & 2.548 \\
+                Jet cut           & 0.205   & 0.623   & 1.129  & 1.957 & 0.188  & 0.569  & 1.021  & 1.777 \\ \hline
+                Jet cut (Thesis)  & 0.277   & 0.874   & 1.744  & 2.895 & 0.285  & 0.909  & 1.778  & 2.972 \\ \hline
+                Fraction          & 10.5\%  & 31.9\%  & 57.7\% & 100\% & 10.6\% & 32.0\% & 57.5\% & 100\% \\
+                Fraction (Thesis) & 9.6\%   & 30.2\%  & 60.2\% & 100\% & 9.6\%  & 30.6\% & 59.8\% & 100\% \\ \hline
             \end{tabular}
         \end{table}
+
+        The thesis also mentioned the overlapping removal strategies for the jet and leptons objects. However, it is not clear if they applied the overlapping removal and what kind of strategy they considered.
 
     % subsection particle_level_selection (end)
 
