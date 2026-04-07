@@ -31,8 +31,13 @@ except Exception as exc:  # pragma: no cover
 
 
 def _setup_delphes() -> None:
+    # [新增] 防護機制：避免多進程或重複 import 時重複載入導致崩潰
+    if getattr(ROOT, "_delphes_loaded", False):
+        return
+
     delphes_candidates = [
         os.environ.get("DELPHES_DIR", ""),
+        os.path.expanduser("~/Software/delphes"),
         "/usr/local/Delphes-3.4.2",
         "/usr/local/Delphes",
     ]
@@ -45,15 +50,25 @@ def _setup_delphes() -> None:
         if not os.path.exists(classes_h):
             continue
 
-        ROOT.gROOT.ProcessLine(f".include {base}/")
-        ROOT.gROOT.ProcessLine(f".include {base}/external/")
-        ROOT.gInterpreter.Declare(f'#include "{classes_h}"')
-        if os.path.exists(lib_delphes + ".so") or os.path.exists(lib_delphes):
-            ROOT.gSystem.Load(lib_delphes)
-        return
-
-
-_setup_delphes()
+        # [修復] 跳過容易掛起的 ProcessLine，ROOT 6.38.04 + Batch Mode 有兼容性問題
+        # ROOT.gROOT.ProcessLine(f".include {base}/")
+        # ROOT.gROOT.ProcessLine(f".include {base}/external/")
+        # ROOT.gInterpreter.Declare(f'#include "{classes_h}"')
+        
+        if os.path.exists(lib_delphes + ".so"):
+            try:
+                ROOT.gSystem.Load(lib_delphes + ".so")
+                ROOT._delphes_loaded = True 
+                return
+            except Exception as e:
+                print(f"Warning: Failed to load {lib_delphes}.so: {e}")
+        elif os.path.exists(lib_delphes):
+            try:
+                ROOT.gSystem.Load(lib_delphes)
+                ROOT._delphes_loaded = True 
+                return
+            except Exception as e:
+                print(f"Warning: Failed to load {lib_delphes}: {e}")
 
 
 ELECTRON_MASS = 0.000511
@@ -248,6 +263,7 @@ def pass_particle_level_sr(event) -> Tuple[int, Optional[Dict[str, float]]]:
 
 def count_stage_range(root_path: str, start: int, end: int) -> Dict[str, int]:
     """Count stage cutflow on a half-open event interval [start, end)."""
+    _setup_delphes()
     f = ROOT.TFile.Open(root_path)
     if not f or f.IsZombie():
         raise RuntimeError(f"Cannot open ROOT file: {root_path}")
@@ -279,6 +295,7 @@ def count_stage_range(root_path: str, start: int, end: int) -> Dict[str, int]:
 
 def sherpa_weighted_stage_sums_for_file(hepmc_path: str, root_path: str) -> Dict[str, object]:
     """Compute weighted stage sums for one matched Sherpa HepMC/ROOT file pair."""
+    _setup_delphes()
     try:
         import pyhepmc  # type: ignore[import-not-found]
     except Exception as exc:
@@ -356,6 +373,7 @@ def sherpa_weighted_stage_sums_for_file(hepmc_path: str, root_path: str) -> Dict
 
 
 def process_root_file(root_path: str, max_events: Optional[int] = None) -> Dict[str, object]:
+    _setup_delphes()
     f = ROOT.TFile.Open(root_path)
     if not f or f.IsZombie():
         raise RuntimeError(f"Cannot open ROOT file: {root_path}")
@@ -507,6 +525,7 @@ def _init_stage_table() -> Dict[str, int]:
 
 def _process_root_chunk(root_path: str, start: int, end: int) -> Dict[str, object]:
     """Process a half-open event interval [start, end) for one ROOT file."""
+    _setup_delphes()
     f = ROOT.TFile.Open(root_path)
     if not f or f.IsZombie():
         raise RuntimeError(f"Cannot open ROOT file: {root_path}")
