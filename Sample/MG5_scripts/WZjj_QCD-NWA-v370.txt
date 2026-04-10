@@ -1,0 +1,36 @@
+generate p p > w+ z j j QCD<=2 QED<=2, w+ > l+ vl, z > l+ l-
+add process p p > w- z j j QCD<=2 QED<=2, w- > l- vl~, z > l+ l-
+output MG5/WZjj_QCD-NWA-v370
+launch MG5/WZjj_QCD-NWA-v370
+
+shower=Pythia8
+detector=Delphes
+analysis=OFF
+madspin=OFF
+done
+
+Cards/delphes_card.dat
+
+set run_card nevents 10000
+set run_card ebeam1 6500.0
+set run_card ebeam2 6500.0
+
+set run_card pdlabel lhapdf
+set run_card lhaid 260000
+
+set run_card ptj 34.0
+set run_card etaj 4.6
+set run_card mmjj 180
+set run_card deltaeta 1.9
+
+set run_card ptl 26.0
+set run_card etal 2.6
+set run_card misset 29.0
+
+set run_card ptj1min 64
+set run_card ptj2min 34
+
+set run_card use_syst False
+set run_card cut_decays True
+
+done
