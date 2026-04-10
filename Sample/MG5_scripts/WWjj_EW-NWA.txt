@@ -31,7 +31,6 @@ set run_card ptj1min 64
 set run_card ptj2min 34
 
 set run_card use_syst False
-
 set run_card cut_decays True
 
 done
