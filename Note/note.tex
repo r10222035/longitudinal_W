@@ -618,28 +618,33 @@
         % subsubsection full_process_and_nwa (end) 
 
         \subsubsection{Yields and Comparisons}% (fold)
-        \label{subs:yields_and_comparisons}
-            
-            To validate our simulation framework, the expected event yields are compared against the reference ATLAS results. Table~\ref{tab:background_yields} summarizes the expected signal and background yields in the SR. The ``ATLAS'' column represents the values reported in Table~3 of Ref.~\cite{ATLAS:2023sua}, ``Thesis'' column represents the values reported in Table~9.1 of Ref.~\cite{stange2025longitudinal},  while the ``Ours'' column represents our results. Here, we normalize our simulated yields to an integrated luminosity of $\mathcal{L} = 139~\mathrm{fb}^{-1}$.
-             
-            \begin{table}[htpb]
-                \centering
-                \caption{Expected and observed yields in the signal region. The ATLAS results are shown alongside our simulation estimates, assuming an integrated luminosity of $139~\mathrm{fb}^{-1}$.}
-                \label{tab:background_yields}
-                \begin{tabular}{l|rrr}
-                    Process                & ATLAS  & Thesis               & Ours   \\ \hline
-                    $W^{\pm}W^{\pm}jj$ EW  & $235$  & 206.52               & 206.05 \\
-                    $W^{\pm}W^{\pm}jj$ QCD & $24$   & 24.05                & 17.80  \\
-                    % $W^{\pm}W^{\pm}jj$ Int & $7.6$  & 7.57                 & $-$    \\
-                    $W^{\pm}Zjj$ EW        & $14.9$ & 14.95                & 24.06  \\
-                    $W^{\pm}Zjj$ QCD       & $83$   & $82.75$\footnotemark & 44.39  \\
-                    % Non-prompt             & $56$   & $-$                  & $-$   
-                \end{tabular}
-            \end{table}
+		\label{subs:yields_and_comparisons}
+			
+			To validate our simulation framework, the expected event yields are compared against the reference ATLAS results. Table~\ref{tab:background_yields_final_comparison} summarizes the expected signal and background yields in the SR. The ``ATLAS'' column represents the values reported in Table~3 of Ref.~\cite{ATLAS:2023sua}, the ``Thesis'' columns represent the values reported in Table~9.1 and Table~G.2 of Ref.~\cite{stange2025longitudinal}, while the remaining columns represent our simulation results. Here, we normalize our simulated yields to an integrated luminosity of $\mathcal{L} = 139~\mathrm{fb}^{-1}$.
+			 
+			\begin{table}[htbp]
+				\centering
+				\caption{Expected yields in the signal region (SR). The ATLAS results are shown alongside Thesis values and our simulation estimates using different generator versions, assuming an integrated luminosity of $139~\mathrm{fb}^{-1}$.}
+				\label{tab:background_yields_final_comparison}
+				\begin{tabular}{l|ccc|ccc}
+					\hline
+					\hline
+					Process & ATLAS & Thesis 9.1 & Thesis G.2\footnotemark[1] & MG 3.3.1 & MG 3.7.0 & Sherpa 3.0.3 \\ 
+					\hline
+					$W^{\pm}W^{\pm}jj$ EW  & $235$  & 206.52 & 211.29\footnotemark[2] & 177.98 & 190.28 & 191.18 \\
+					$W^{\pm}W^{\pm}jj$ QCD & $24$   & 24.05  & 24.27                  & 14.38  & 12.96  & 19.12  \\
+					$W^{\pm}Zjj$ EW        & $14.9$ & 14.95  & 15.07                  & 9.12   & 9.50   & 32.55  \\
+					$W^{\pm}Zjj$ QCD       & $83$   & 82.75\footnotemark[3] & 77.0    & 18.47  & 16.30  & 80.15  \\
+					\hline
+					\hline
+				\end{tabular}
+			\end{table}
 
-            \footnotetext{In the thesis, the predicted events appears to be scaled down (e.g., $82.75 / 2 \approx 41.38 \to 28.50$). The authors note in the caption that an additional normalization factor was applied to achieve a better agreement with the expected data. However, the exact derivation of this factor is not detailed.}
+			\footnotetext[1]{Values from the pre-fit event yields (Table G.2), where the three DNN score bins are merged.}
+			\footnotetext[2]{The sum of the LL, TL, and TT polarization processes.}
+			\footnotetext[3]{The predicted events appear to be scaled down (e.g., $82.75 / 2 \approx 41.38 \to 28.50$). The authors note in the caption that an additional normalization factor was applied to achieve a better agreement with the expected data. However, the exact derivation of this factor is not detailed.}
 
-        % subsubsection yields_and_comparisons (end)
+		% subsubsection yields_and_comparisons (end)
 
     % subsection background_processes (end)
 
