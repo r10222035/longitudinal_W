@@ -18,7 +18,7 @@ Use these imports in notebook cells:
 from selection.core.cuts import pass_SR_cuts, pass_low_mjj_cr_cuts, pass_WZ_CR_cuts
 from selection.core.parallel import selection_cut_parallel, selection_cut_with_region
 from selection.yields import (
-    compute_expected_events_by_region_parallel,
+    compute_expected_events_mg_by_region,
     compute_expected_events_sherpa_by_region,
 )
 ```

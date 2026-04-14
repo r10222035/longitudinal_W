@@ -21,7 +21,7 @@ def _get_cross_section_from_mg5_banner(banner_path):
     return float(match.group(1)) * 1000.0
 
 
-def compute_expected_events_by_region_parallel(
+def compute_expected_events_mg_by_region(
     sample_inputs,
     luminosity_fb_inv=139.0,
     num_workers=None,
@@ -58,7 +58,8 @@ def compute_expected_events_by_region_parallel(
         wz = wz_results_parallel[sample_name]
 
         n_total = sr["cutflow"]["Total"]
-        acc_sr = sr["cutflow"]["Jet cut"] / n_total if n_total > 0 else 0.0
+        n_sr_passed = sr["cutflow"]["Jet cut"]
+        acc_sr = n_sr_passed / n_total if n_total > 0 else 0.0
         acc_low_mjj = low_mjj["cutflow"]["Jet cut"] / n_total if n_total > 0 else 0.0
         acc_wz = wz["cutflow"]["Jet cut"] / n_total if n_total > 0 else 0.0
 
@@ -71,6 +72,8 @@ def compute_expected_events_by_region_parallel(
             "sigma_sr_fb": sigma_sr_fb,
             "sigma_low_mjj_fb": sigma_low_mjj_fb,
             "sigma_wz_fb": sigma_wz_fb,
+            "n_total_events": n_total,
+            "n_passed_events": n_sr_passed,
             "n_expected_sr": sigma_sr_fb * luminosity_fb_inv,
             "n_expected_low_mjj": sigma_low_mjj_fb * luminosity_fb_inv,
             "n_expected_wz": sigma_wz_fb * luminosity_fb_inv,
