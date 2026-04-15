@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from .root_init import prepare_cppyy_api_path
+
+prepare_cppyy_api_path()
 import ROOT
 
 Z_MASS = 91.1876

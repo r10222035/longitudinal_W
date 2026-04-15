@@ -28,6 +28,9 @@ def compute_expected_events_mg_by_region(
     chunks_per_file=1,
 ):
     """Parallel expected-yield analysis using the shared selection core."""
+    from selection import _ensure_root_initialized
+    _ensure_root_initialized()
+    
     results = {}
     sample_groups = {sample_name: [paths["root"]] for sample_name, paths in sample_inputs.items()}
 

@@ -6,6 +6,9 @@ import concurrent.futures
 import os
 
 import numpy as np
+from .root_init import prepare_cppyy_api_path
+
+prepare_cppyy_api_path()
 import ROOT
 from tqdm import tqdm
 
@@ -90,6 +93,10 @@ def selection_cut_with_region(tree, cut_func):
 
 
 def _selection_cut_chunk(root_path, start, end, cut_func_name):
+    # Subprocess-level ROOT initialization (each worker process runs this independently)
+    from .root_init import initialize_root_delphes
+    initialize_root_delphes()
+    
     cut_func = _get_cut_function(cut_func_name)
 
     f = ROOT.TFile(root_path)
