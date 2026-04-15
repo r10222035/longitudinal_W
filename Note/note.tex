@@ -325,7 +325,7 @@
             \end{tabular}
         \end{table}
 
-        Figure~\ref{fig:kinematic_distributions_ww_cmf} displays the kinematic distributions for the various polarization states in the SR within the $WW$ center-of-mass frame. These results are consistent with figure~2 in ref.~\cite{ATLAS:2025wuw}.
+        Figure~\ref{fig:kinematic_distributions_ww_cmf} displays the kinematic distributions for the various polarization states in the SR within the $WW$ center-of-mass frame. These results are consistent with Figure~2 in ref.~\cite{ATLAS:2025wuw}.
         \begin{figure}[htpb]
             \centering
             \subfloat[$\abs{\Delta\eta_{\ell\ell}}$ distribution]{
@@ -647,6 +647,39 @@
 		% subsubsection yields_and_comparisons (end)
 
     % subsection background_processes (end)
+
+    \subsection{Determination of the Cross-Section for Sherpa Samples}% (fold)
+    \label{sub:what_cross_section_should_be_used_in_sherpa_samples}
+
+        When utilizing \verb|Sherpa| to generate MC samples, there are two primary stages. First, the generator performs a numerical integration over the defined phase space to calculate the total cross-section. Subsequently, it generates events and writes the kinematic information and local cross-section into the resulting \verb|HepMC| file.
+
+        In our previous analyses, the cross-section was estimated by extracting the values recorded event-by-event in the \verb|HepMC| file and computing their average. However, the values written to the event record are local estimates derived during the generating stage. Consequently, they are subject to large statistical fluctuations, which can introduce biases into the final normalization.
+
+        Conversely, the cross-section reported in the \verb|Sherpa| log output that was evaluated during the initial phase-space integration stage is more suitable. Because this integration stage utilizes vast sampling points before generating events, it reduces statistical fluctuations and yields a more stable cross-section.
+
+        Table~\ref{tab:sherpa_xs_comparison} presents a comparison of the absolute cross-sections ($\sigma_{\text{gen}}$) and the corresponding expected yields ($N_{\text{exp}}$) in the SR obtained via these two methods: the integration log output (New) and the averaged \verb|HepMC| weights (Old). 
+
+        \begin{table}[htpb]
+            \centering
+            \caption{Comparison of the generation cross-sections ($\sigma_{\text{gen}}$) and expected yields ($N_{\text{exp}}$) in the SR using the \texttt{Sherpa} log output (New) versus the averaged \texttt{HepMC} values (Old). The percentage difference highlights the consistent overestimation bias introduced by the \texttt{HepMC} method.}
+            \label{tab:sherpa_xs_comparison}
+            \begin{tabular}{l|rr|rr|r}
+                \hline
+                \hline
+                Sample & $\sigma_{\text{gen}}^{\text{New}}$ [fb] & $\sigma_{\text{gen}}^{\text{Old}}$ [fb] & $N_{\text{exp}}^{\text{New}}$ & $N_{\text{exp}}^{\text{Old}}$ & Diff. \\ 
+                \hline
+                $W^{\pm}W^{\pm}jj$ EW  & 7.895  & 8.689  & 178.22 & 196.14 & $-$9.13\% \\
+                $W^{\pm}W^{\pm}jj$ QCD & 2.245  & 2.441  & 17.88  & 19.44  & $-$8.01\% \\
+                $W^{\pm}Zjj$ EW        & 8.242  & 8.585  & 32.76  & 34.13  & $-$4.00\% \\
+                $W^{\pm}Zjj$ QCD       & 20.279 & 21.278 & 72.44  & 76.01  & $-$4.70\% \\
+                \hline
+                \hline
+            \end{tabular}
+        \end{table}
+
+        As observed in the table, the \verb|HepMC| average consistently overestimates the expected yields by roughly 4\% to 9\% across various processes. All subsequent analyses will utilize the cross-section obtained from the \verb|Sherpa| generation log.
+
+    % subsection what_cross_section_should_be_used_in_sherpa_samples (end)
 
 % section monte_carlo_simulation (end)
 
