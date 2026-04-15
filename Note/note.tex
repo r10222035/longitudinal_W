@@ -681,6 +681,83 @@
 
     % subsection what_cross_section_should_be_used_in_sherpa_samples (end)
 
+    \subsection{MadGraph Run Card Selection Criteria Issues}% (fold)
+    \label{sub:madgraph_run_card_selection_criteria_issue}
+        
+        To increase the event generation efficiency for the SR phase space, we applied kinematic cuts at the generator level (as detailed in Section~\ref{sub:ww_center_of_mass_reference_frame}). While these cuts are appropriate for generating pure $W^{\pm}W^{\pm}jj$ signal samples, they introduce biases when extending the analysis to Control Regions (CR) or simulating reducible backgrounds such as $W^{\pm}Zjj$.
+
+        For the CR, the analysis investigates the low-$m_{jj}$ region, specifically $200~\mathrm{GeV} < m_{jj} < 500~\mathrm{GeV}$. The previous generator-level cut of \verb|set run_card mmjj 480| is problematic, as it truncates almost all valid events that would populate this CR.
+
+        Furthermore, for the $W^{\pm}Zjj \to \ell\nu\ell\ell$ background, the global lepton transverse momentum cut \verb|set run_card ptl 26.0| causes a underestimation. The \verb|ptl| parameter in \verb|MadGraph| enforces a minimum $p_{\text{T}}$ requirement on \textit{all} generated leptons. 
+        
+        \textbf{Example:} Consider a $W^+Z \to \ell^+ \nu \ell^+ \ell^-$ event where the two same-sign leptons have $p_{\text{T}} = 45~\mathrm{GeV}$ and $35~\mathrm{GeV}$, while the third lepton ($\ell^-$) is soft with $p_{\text{T}} = 15~\mathrm{GeV}$. In the detector simulation, this soft $\ell^-$ might be ``lost'' (e.g., falling outside the acceptance or failing identification), leaving exactly two same-sign leptons that pass the SR cuts ($p_{\text{T}} > 27~\mathrm{GeV}$). However, because the third lepton's $p_{\text{T}}$ is lower than the $26.0~\mathrm{GeV}$ threshold, \verb|MadGraph| will discard this event at the generation level. Consequently, this topology is completely lost.
+
+        To resolve these issues, the \verb|MadGraph| run card scripts must be updated to use looser, ordered cuts. Taking the QCD $W^{\pm}Zjj$ process as an example:
+        
+        \begin{lstlisting}
+            generate p p > w+ z j j QCD<=2 QED<=2, w+ > l+ vl, z > l+ l-
+            add process p p > w- z j j QCD<=2 QED<=2, w- > l- vl~, z > l+ l-
+            output MG5/WZjj_QCD-NWA-v370
+            launch MG5/WZjj_QCD-NWA-v370
+
+            shower=Pythia8
+            detector=Delphes
+            analysis=OFF
+            madspin=OFF
+            done
+
+            Cards/delphes_card.dat
+
+            set run_card nevents 10000
+            set run_card ebeam1 6500.0
+            set run_card ebeam2 6500.0
+
+            set run_card pdlabel lhapdf
+            set run_card lhaid 260000
+
+            set run_card ptj 20.0
+            set run_card etaj 5.0
+            set run_card mmjj 150.0
+            set run_card deltaeta 1.5
+            set run_card ptj1min 50.0
+            set run_card ptj2min 25.0
+
+            set run_card etal 2.7
+            set run_card ptl1min 20.0
+            set run_card ptl2min 20.0
+
+            set run_card misset 10.0
+
+            set run_card use_syst False
+            set run_card cut_decays True
+
+            done
+        \end{lstlisting}
+
+        The primary changes include relaxing the dijet invariant mass baseline to \verb|mmjj 150.0|, and replacing the global \verb|ptl| cut with ordered lepton cuts: \verb|ptl1min 20.0| and \verb|ptl2min 20.0|. This ensures that only the leading and subleading leptons are constrained, leaving the third lepton unrestricted. Other kinematic variables are relaxed to safely encompass the full reconstructed-level phase space.
+
+
+        Table~\ref{tab:background_yields_updated} presents the updated event yields in the SR. In this revised comparison, we utilized the cross-sections from the \verb|Sherpa| log outputs (Section~\ref{sub:what_cross_section_should_be_used_in_sherpa_samples}), and applying the relaxed, ordered generator-level cuts for the \verb|MadGraph| 3.7.0 samples to prevent phase-space truncation (Section~\ref{sub:madgraph_run_card_selection_criteria_issue}).
+        \begin{table}[htbp]
+            \centering
+            \caption{Updated expected yields in the SR. The ATLAS results are shown alongside the reference Thesis values and our refined simulation estimates (MG 3.7.0 with relaxed cuts and Sherpa 3.0.3 with log-based cross-sections). All values assume an integrated luminosity of $139~\mathrm{fb}^{-1}$.}
+            \label{tab:background_yields_updated}
+            \begin{tabular}{l|ccc|cc}
+                \hline
+                \hline
+                Process & ATLAS & Thesis 9.1 & Thesis G.2 & MG 3.7.0 & Sherpa 3.0.3 \\ 
+                \hline
+                $W^{\pm}W^{\pm}jj$ EW  & $235$  & 206.52 & 211.29 & 204.08 & 178.22 \\
+                $W^{\pm}W^{\pm}jj$ QCD & $24$   & 24.05  & 24.27  & 14.48  & 17.88  \\
+                $W^{\pm}Zjj$ EW        & $14.9$ & 14.95  & 15.07  & 22.94  & 32.76  \\
+                $W^{\pm}Zjj$ QCD       & $83$   & 82.75  & 77.0   & 50.23  & 72.44  \\
+                \hline
+                \hline
+            \end{tabular}
+        \end{table}
+
+    % subsection madgraph_run_card_selection_criteria_issue (end)
+
 % section monte_carlo_simulation (end)
 
 \bibliographystyle{ieeetr}
