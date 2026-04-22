@@ -23,6 +23,10 @@ from selection.yields import (
 )
 ```
 
+Sherpa yield computation now always uses integration-log cross-sections.
+Use `compute_expected_events_sherpa_by_region` with `integration_log_path`
+and either `root_dir`, `root_paths`, or `forced_root_paths`.
+
 If a running kernel keeps old exports cached after edits, run:
 
 ```python

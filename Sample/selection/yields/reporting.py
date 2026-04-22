@@ -157,13 +157,32 @@ def print_expected_event_counts_table(
     if diagnostics is not None:
         print("\nDiagnostics:")
         for sample_name, diag in diagnostics.items():
+            root_input_summary = diag.get("root_input_summary", {})
             pairing = diag.get("pairing", {})
             xsec_stats = diag.get("xsec_stats", {})
             if xsec_stats.get("n_valid", 0) == 0:
                 print(f"  {sample_name:<10} missing reconstructed ROOT data")
                 continue
+
+            root_source = root_input_summary.get("source")
+            n_root_valid = root_input_summary.get("n_root_valid")
+            n_root_selected = root_input_summary.get("n_root_selected")
+            n_root_total = root_input_summary.get("n_root_total")
+
+            # Backward compatibility for older diagnostics payloads.
+            if n_root_valid is None:
+                n_root_valid = pairing.get("n_pairs", 0)
+            if n_root_selected is None:
+                n_root_selected = pairing.get("n_root", n_root_valid)
+            if n_root_total is None:
+                n_root_total = pairing.get("n_root", n_root_selected)
+            if root_source is None:
+                root_source = pairing.get("source", "unknown")
+
             print(
-                f"  {sample_name:<10} pairs={pairing.get('n_pairs', 0):<4} "
+                f"  {sample_name:<10} root_valid={n_root_valid:<4} "
+                f"root_selected={n_root_selected:<4} root_total={n_root_total:<4} "
+                f"root_source={root_source:<16} "
                 f"valid_xsec={xsec_stats.get('n_valid', 0):<6} "
                 f"mean_xsec_pb={xsec_stats.get('mean_xsec_pb', np.nan):.6e}"
             )
