@@ -44,3 +44,25 @@ Expected table (L = 139 fb^-1):
 - `WZjj_EW-NWA`: `9.12 / 1.44 / 13.80`
 - `WZjj_QCD-NWA`: `18.47 / 11.46 / 36.71`
 - `SUM`: `219.96 / 44.37 / 50.51`
+
+## SR to Parquet Export
+
+Use `export_sr_to_parquet.py` to extract only SR-passed events from a Delphes
+TTree and write a flat Parquet file for DNN training.
+
+Example:
+
+```bash
+python selection/export_sr_to_parquet.py \
+    --input-root /path/to/sample.root \
+    --tree Delphes \
+    --output-parquet /path/to/sr_features.parquet
+```
+
+Outputs:
+
+- Event-level Parquet table (one row per SR-passed event)
+- Sidecar cutflow JSON at `<output>.cutflow.json`
+
+The exporter reuses `selection.core.cuts.pass_SR_cuts`, so SR definition is
+kept consistent with reconstructed-level analysis.
