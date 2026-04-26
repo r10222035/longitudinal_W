@@ -1,7 +1,7 @@
-generate p p > w+ w+ j j QCD=0, w+ > l+ vl
-add process p p > w- w- j j QCD=0, w- > l- vl~
-output MG5/WWjj_EW-NWA-v370
-launch MG5/WWjj_EW-NWA-v370
+generate p p > w+{0} w+{0} j j QCD=0, w+ > l+ vl
+add process p p > w-{0} w-{0} j j QCD=0, w- > l- vl~
+output MG5/WWjj_EW-LL-WW_cmf
+launch MG5/WWjj_EW-LL-WW_cmf
 
 shower=Pythia8
 detector=Delphes
@@ -36,5 +36,6 @@ set run_card misset 10.0
 
 set run_card use_syst False
 set run_card cut_decays True
+set run_card me_frame 3, 4, 5, 6
 
 done

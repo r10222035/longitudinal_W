@@ -1,7 +1,7 @@
-generate p p > w+ z j j QCD<=2 QED<=2, w+ > l+ vl, z > l+ l-
-add process p p > w- z j j QCD<=2 QED<=2, w- > l- vl~, z > l+ l-
-output MG5/WZjj_QCD-NWA-v370
-launch MG5/WZjj_QCD-NWA-v370
+generate p p > w+ z j j QCD=0, w+ > l+ vl, z > l+ l-
+add process p p > w- z j j QCD=0, w- > l- vl~, z > l+ l-
+output MG5/WZjj_EW
+launch MG5/WZjj_EW
 
 shower=Pythia8
 detector=Delphes

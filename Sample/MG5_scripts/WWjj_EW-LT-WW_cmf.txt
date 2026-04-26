@@ -1,0 +1,41 @@
+generate p p > w+{0} w+{T} j j QCD=0, w+ > l+ vl
+add process p p > w-{0} w-{T} j j QCD=0, w- > l- vl~
+output MG5/WWjj_EW-LT-WW_cmf
+launch MG5/WWjj_EW-LT-WW_cmf
+
+shower=Pythia8
+detector=Delphes
+analysis=OFF
+madspin=OFF
+done
+
+Cards/delphes_card.dat
+
+set run_card nevents 10000
+set run_card ebeam1 6500.0
+set run_card ebeam2 6500.0
+
+set run_card pdlabel lhapdf
+set run_card lhaid 260000
+
+# ----- 噴流相空間與 VBS 切割 -----
+set run_card ptj 20.0
+set run_card etaj 5.0
+set run_card mmjj 150.0
+set run_card deltaeta 1.5
+set run_card ptj1min 50.0
+set run_card ptj2min 25.0
+
+# ----- 輕子相空間切割 -----        
+set run_card etal 2.7
+set run_card ptl1min 20.0
+set run_card ptl2min 20.0
+
+# ----- 缺失橫能與質量切割 -----
+set run_card misset 10.0
+
+set run_card use_syst False
+set run_card cut_decays True
+set run_card me_frame 3, 4, 5, 6
+
+done
