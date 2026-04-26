@@ -41,6 +41,7 @@
 \usepackage{caption}
 \usepackage{multirow}
 \usepackage{enumitem}
+\usepackage{booktabs}
 
 %
 \usepackage{mathrsfs}
@@ -95,7 +96,7 @@
 \label{sec:atlas_latest_study}
 
     The couplings of longitudinally polarized $W$ and $Z$ bosons to the Higgs boson prevent the divergence of tree-level Vector Boson Scattering (VBS) amplitudes at high energies when the two outgoing bosons are longitudinally polarized, restoring the unitarity at the TeV scale. Thus, the VBS processes with longitudinal vector bosons provide a sensitive test of the electroweak (EW) symmetry-breaking mechanism.
- 
+
     The most recent ATLAS study is detailed in Ref.~\cite{ATLAS:2025wuw}. This study focuses on VBS. Specifically, it investigates the EW production of same-sign $W$ boson pairs (EW $W^{\pm} W^{\pm} jj$), a process to which VBS provides a significant contribution. The key concepts and event selection criteria of this work are summarized below.
 
     The object selection criteria are as follows:
@@ -121,7 +122,7 @@
         The signal processes are the electroweak (EW) production of $W^{\pm}W^{\pm}jj$ in various polarization states. We simulate the EW same-sign $W$ boson pair production at a center-of-mass energy of $\sqrt{s} = 13~\text{TeV}$. The events are generated using \verb|MadGraph 3.3.1|~\cite{Alwall:2014hca}. Both $W$ bosons are forced to decay leptonically. Parton showering and hadronization are simulated with \verb|Pythia 8.306|~\cite{Sjostrand:2014zea}, followed by a fast detector simulation using \verb|Delphes 3.4.2|~\cite{deFavereau:2013fsa}. Jets are reconstructed via the anti-$k_t$ algorithm~\cite{Cacciari:2008gp} with a distance parameter of $R = 0.4$, implemented in \verb|FastJet 3.3.2|~\cite{Cacciari:2011ma}. Reconstructed jets are required to have a transverse momentum of $p_{\text{T}} > 25~\text{GeV}$.
 
         The following \verb|MadGraph| scripts are used to generate the Monte Carlo (MC) samples for these polarized processes:
-        
+
         \paragraph{Longitudinal mode: $pp \to W^{\pm}_{\text{L}}W^{\pm}_{\text{L}} jj$}
         \begin{lstlisting}
             generate p p > j j w+{0} w+{0} QCD=0, w+ > l+ vl
@@ -205,13 +206,13 @@
         \begin{figure}[htpb]
             \centering
             \subfloat[$\abs{\Delta\eta_{\ell\ell}}$ distribution]{
-                \includegraphics[width=0.32\textwidth]{EW_WWjj_deta_ll.pdf}
+                \includegraphics[width=0.31\textwidth]{EW_WWjj_deta_ll.pdf}
             }
             \subfloat[$m_{\text{T}}$ distribution]{
-                 \includegraphics[width=0.32\textwidth]{EW_WWjj_mT.pdf}
+                \includegraphics[width=0.31\textwidth]{EW_WWjj_mT.pdf}
             }
             \subfloat[$\Delta\phi_{jj}$ distribution]{
-                \includegraphics[width=0.32\textwidth]{EW_WWjj_dphi_jj.pdf}
+                \includegraphics[width=0.31\textwidth]{EW_WWjj_dphi_jj.pdf}
             }
             \caption{Kinematic distributions of $\abs{\Delta\eta_{\ell\ell}}$, $m_{\text{T}}$, and $\Delta\phi_{jj}$ in the signal region. The ratios of the contributions from different polarization states are shown in the bottom panels.}
             \label{fig:kinematic_distributions}
@@ -222,7 +223,7 @@
     \subsection{Absolute Cross-Sections}% (fold)
     \label{sub:absolute_cross_sections}
 
-        Table~\ref{tab:EW_WWjj_abs_cross_section} summarizes the absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production across different selection stages. To validate our simulation framework, the final cross-sections after the jet cut are compared with the reference results from a previous thesis~\cite{stange2025longitudinal}. 
+        Table~\ref{tab:EW_WWjj_abs_cross_section} summarizes the absolute cross-sections for the EW $W^{\pm}W^{\pm}jj$ production across different selection stages. To validate our simulation framework, the final cross-sections after the jet cut are compared with the reference results from a previous thesis~\cite{stange2025longitudinal}.
 
         \begin{table}[htpb]
             \centering
@@ -242,12 +243,12 @@
         \end{table}
 
         As observed in Table~\ref{tab:EW_WWjj_abs_cross_section}, while the relative fractions of the polarization states are in excellent agreement with the reference thesis, the absolute cross-sections in our simulation are approximately a factor of two lower. Further investigation is needed.
-    % subsection absolute_cross_sections (end)    
+    % subsection absolute_cross_sections (end)
 
     \subsection{\texorpdfstring{$WW$}{WW} Center-of-Mass Reference Frame}% (fold)
     \label{sub:ww_center_of_mass_reference_frame}
 
-        To properly study the scattering dynamics, we modify our \verb|MadGraph| scripts to define the $W$ boson polarizations in the $W^{\pm}W^{\pm}$ center-of-mass (CM) frame. 
+        To properly study the scattering dynamics, we modify our \verb|MadGraph| scripts to define the $W$ boson polarizations in the $W^{\pm}W^{\pm}$ center-of-mass (CM) frame.
 
         The following generation commands are used to produce the MC samples with this specific reference frame definition:
 
@@ -329,13 +330,13 @@
         \begin{figure}[htpb]
             \centering
             \subfloat[$\abs{\Delta\eta_{\ell\ell}}$ distribution]{
-                \includegraphics[width=0.32\textwidth]{EW_WWjj_deta_ll-ww_cmf.pdf}
+                \includegraphics[width=0.31\textwidth]{EW_WWjj_deta_ll-ww_cmf.pdf}
             }
             \subfloat[$m_{\text{T}}$ distribution]{
-                \includegraphics[width=0.32\textwidth]{EW_WWjj_mT-ww_cmf.pdf}
+                \includegraphics[width=0.31\textwidth]{EW_WWjj_mT-ww_cmf.pdf}
             }
             \subfloat[$\Delta\phi_{jj}$ distribution]{
-                \includegraphics[width=0.32\textwidth]{EW_WWjj_dphi_jj-ww_cmf.pdf}
+                \includegraphics[width=0.31\textwidth]{EW_WWjj_dphi_jj-ww_cmf.pdf}
             }
             \caption{Kinematic distributions of $\abs{\Delta\eta_{\ell\ell}}$, $m_{\text{T}}$, and $\Delta\phi_{jj}$ in the signal region. The ratios of the contributions from different polarization states are shown in the bottom panels.}
             \label{fig:kinematic_distributions_ww_cmf}
@@ -345,7 +346,7 @@
 
     \subsection{Simulation with Sherpa}% (fold)
     \label{sub:simulation_with_sherpa}
-        
+
         To investigate the cross-section discrepancy, we employ a different Monte Carlo generator, \verb|Sherpa 3|~\cite{Sherpa:2024mfk}, which is also the primary generator utilized in the ATLAS analysis.
 
         We simulate the EW same-sign $W$ boson pair production at a center-of-mass energy of $\sqrt{s} = 13$ TeV. Both $W$ bosons are forced to decay leptonically. Parton showering and hadronization are handled internally by \verb|Sherpa|, followed by a fast detector simulation using \verb|Delphes 3.4.2|~\cite{deFavereau:2013fsa}. Jets are reconstructed via the anti-$k_t$ algorithm~\cite{Cacciari:2008gp} with a distance parameter of $R = 0.4$, implemented in \verb|FastJet 3.3.2|~\cite{Cacciari:2011ma}. The reconstructed jets are required to have a transverse momentum of $p_{\text{T}} > 25$ GeV.
@@ -369,7 +370,7 @@
 
             # scales
             MEPS:
-              CORE_SCALE: VAR{0.5*Abs2(p[2]+p[3])} 
+              CORE_SCALE: VAR{0.5*Abs2(p[2]+p[3])}
 
             # physical constants and width settings
             PARTICLE_DATA:
@@ -426,7 +427,7 @@
 
             # scales
             MEPS:
-              CORE_SCALE: VAR{0.5*Abs2(p[2]+p[3])} 
+              CORE_SCALE: VAR{0.5*Abs2(p[2]+p[3])}
 
             # physical constants and width settings
             PARTICLE_DATA:
@@ -470,7 +471,7 @@
 
         It is important to note that the decay channel specification in \verb|Sherpa| is strictly sensitive. The particle ordering must match the internal definitions precisely; for instance, \verb|24,12,-11: {Status: 2}| is valid, whereas \verb|24,-11,12: {Status: 2}| will not be recognized.
 
-        Table~\ref{tab:sherpa_WpWm_cross_section} details the absolute cross-sections for the individual $W^{+}W^{+}jj$ and $W^{-}W^{-}jj$ samples at various selection stages, with the polarization states defined in the $W^{\pm}W^{\pm}$ center-of-mass frame. 
+        Table~\ref{tab:sherpa_WpWm_cross_section} details the absolute cross-sections for the individual $W^{+}W^{+}jj$ and $W^{-}W^{-}jj$ samples at various selection stages, with the polarization states defined in the $W^{\pm}W^{\pm}$ center-of-mass frame.
         \begin{table}[htpb]
             \centering
             \caption{Absolute cross-sections for the separate $W^{+}W^{+}jj$ and $W^{-}W^{-}jj$ samples at various selection stages simulated with \texttt{Sherpa}. Polarization states are defined in the $W^{\pm}W^{\pm}$ center-of-mass frame.}
@@ -481,7 +482,7 @@
                 Total      & 0.527    & 1.633    & 2.949    & 5.108   & 0.162    & 0.475    & 0.850   & 1.487  \\
                 Lepton cut & 0.153    & 0.441    & 0.863    & 1.457   & 0.048    & 0.143    & 0.295   & 0.486  \\
                 MET cut    & 0.132    & 0.394    & 0.776    & 1.302   & 0.040    & 0.122    & 0.250   & 0.412  \\
-                Jet cut    & 0.106    & 0.319    & 0.633    & 1.057   & 0.030    & 0.094    & 0.199   & 0.323  \\ 
+                Jet cut    & 0.106    & 0.319    & 0.633    & 1.057   & 0.030    & 0.094    & 0.199   & 0.323  \\
             \end{tabular}
         \end{table}
 
@@ -498,7 +499,7 @@
                 Jet cut           & 0.136   & 0.413   & 0.831   & 1.380      \\ \hline
                 Jet cut (Thesis)  & 0.285   & 0.909   & 1.778   & 2.933      \\ \hline
                 Fraction          & 9.9\%   & 29.9\%  & 60.2\%  & 100\%      \\
-                Fraction (Thesis) & 9.6\%   & 30.6\%  & 59.8\%  & 100\%     
+                Fraction (Thesis) & 9.6\%   & 30.6\%  & 59.8\%  & 100\%
             \end{tabular}
         \end{table}
 
@@ -520,7 +521,7 @@
         \begin{itemize}
             \item \textbf{Leptons:} Exactly two same-sign leptons with $p_{\text{T}} > 27~\mathrm{GeV}$. Muons must satisfy $\abs{\eta} < 2.5$. Electrons must satisfy $\abs{\eta} < 2.47$, excluding the transition region $1.37 \leq \abs{\eta} \leq 1.52$, with an additional restriction of $\abs{\eta} < 1.37$ for the $ee$ channel.
 
-            \item \textbf{Dilepton Mass \& $Z$-veto:} The dilepton invariant mass must be $m_{\ell\ell} > 20~\mathrm{GeV}$. Additionally, a $Z$-boson veto is exclusively applied to the $ee$ channel, requiring $\abs{m_{ee} - m_{Z}} > 15~\mathrm{GeV}$ to suppress background contributions.
+            \item \textbf{Dilepton Mass \& $Z$-veto:} The dilepton invariant mass must be $m_{\ell\ell} > 20~\mathrm{GeV}$. Additionally, a $Z$-boson veto is applied to the $ee$ channel, requiring $\abs{m_{ee} - m_{Z}} > 15~\mathrm{GeV}$ to suppress background contributions.
 
             \item \textbf{Missing Transverse Momentum:} $E_{\text{T}}^{\text{miss}} \geq 30~\mathrm{GeV}$.
 
@@ -557,11 +558,11 @@
 \label{sub:background_processes}
 
     In this section, we focus on the primary background sources: the irreducible QCD $W^\pm W^\pm jj$ production and the reducible $W^{\pm}Zjj$ process.
-    
+
         \subsubsection{QCD \texorpdfstring{$W^{\pm}W^{\pm}jj$}{WWjj} Production}% (fold)
         \label{subs:qcd_wwjj_production}
 
-            The QCD-induced same-sign $W$ boson pair production in association with two jets is an irreducible background, as its final state is identical to that of the signal. At tree level, this process is of order $\mathcal{O}(\alpha_S^2 \alpha^4)$. 
+            The QCD-induced same-sign $W$ boson pair production in association with two jets is an irreducible background, as its final state is identical to that of the signal. At tree level, this process is of order $\mathcal{O}(\alpha_S^2 \alpha^4)$.
 
             The following \verb|MadGraph| scripts are used to generate the MC samples:
             \begin{lstlisting}
@@ -571,19 +572,19 @@
                 ...
             \end{lstlisting}
 
-        % subsubsection qcd_wwjj_production (end)  
+        % subsubsection qcd_wwjj_production (end)
 
         \subsubsection{INT \texorpdfstring{$W^{\pm}W^{\pm}jj$}{WWjj} Production}% (fold)
         \label{subs:int_wwjj_production}
 
-            The interference (INT) $W^{\pm}W^{\pm}jj$ background arises from the quantum interference between the purely electroweak and the QCD-induced amplitudes. At tree level, this process is of order $\mathcal{O}(\alpha_S \alpha^5)$. 
+            The interference (INT) $W^{\pm}W^{\pm}jj$ background arises from the quantum interference between the purely electroweak and the QCD-induced amplitudes. At tree level, this process is of order $\mathcal{O}(\alpha_S \alpha^5)$.
 
         % subsubsection int_wwjj_production (end)
 
         \subsubsection{\texorpdfstring{$W^{\pm}Zjj$}{WZjj} Production}% (fold)
         \label{subs:wzjj_production}
-            
-            The $WZ$ production in association with jets, where $WZ \to \ell\nu\ell\ell$, is the most prominent reducible background. It mimics the same-sign $WW$ topology when one of the leptons from the $Z$ boson decay is ``lost'' (e.g., falls outside the detector acceptance or fails identification criteria). 
+
+            The $WZ$ production in association with jets, where $WZ \to \ell\nu\ell\ell$, is the most prominent reducible background. It mimics the same-sign $WW$ topology when one of the leptons from the $Z$ boson decay is ``lost'' (e.g., falls outside the detector acceptance or fails identification criteria).
 
             The following \verb|MadGraph| scripts are used to generate the MC samples:
             \begin{lstlisting}
@@ -614,14 +615,14 @@
             However, simulating the full process requires evaluating a vast number of Feynman diagrams and integrating over a highly complex phase space. This often leads to severe integration inefficiencies and divergences, making it prohibitive to generate a sufficient number of events.
 
             We investigated the $W^{\pm}Zjj$ case and found that the full simulation and the Narrow Width Approximation (NWA) approach produce highly consistent absolute cross-sections after applying the SR cuts. Therefore, we temporarily adopt the NWA for our current generation setup to ensure efficiency.
-            
-        % subsubsection full_process_and_nwa (end) 
+
+        % subsubsection full_process_and_nwa (end)
 
         \subsubsection{Yields and Comparisons}% (fold)
 		\label{subs:yields_and_comparisons}
-			
+
 			To validate our simulation framework, the expected event yields are compared against the reference ATLAS results. Table~\ref{tab:background_yields_final_comparison} summarizes the expected signal and background yields in the SR. The ``ATLAS'' column represents the values reported in Table~3 of Ref.~\cite{ATLAS:2023sua}, the ``Thesis'' columns represent the values reported in Table~9.1 and Table~G.2 of Ref.~\cite{stange2025longitudinal}, while the remaining columns represent our simulation results. Here, we normalize our simulated yields to an integrated luminosity of $\mathcal{L} = 139~\mathrm{fb}^{-1}$.
-			 
+
 			\begin{table}[htbp]
 				\centering
 				\caption{Expected yields in the signal region (SR). The ATLAS results are shown alongside Thesis values and our simulation estimates using different generator versions, assuming an integrated luminosity of $139~\mathrm{fb}^{-1}$.}
@@ -629,7 +630,7 @@
 				\begin{tabular}{l|ccc|ccc}
 					\hline
 					\hline
-					Process & ATLAS & Thesis 9.1 & Thesis G.2\footnotemark[1] & MG 3.3.1 & MG 3.7.0 & Sherpa 3.0.3 \\ 
+					Process & ATLAS & Thesis 9.1 & Thesis G.2\footnotemark[1] & MG 3.3.1 & MG 3.7.0 & Sh 3.0.3 \\
 					\hline
 					$W^{\pm}W^{\pm}jj$ EW  & $235$  & 206.52 & 211.29\footnotemark[2] & 177.98 & 190.28 & 191.18 \\
 					$W^{\pm}W^{\pm}jj$ QCD & $24$   & 24.05  & 24.27                  & 14.38  & 12.96  & 19.12  \\
@@ -657,7 +658,7 @@
 
         Conversely, the cross-section reported in the \verb|Sherpa| log output that was evaluated during the initial phase-space integration stage is more suitable. Because this integration stage utilizes vast sampling points before generating events, it reduces statistical fluctuations and yields a more stable cross-section.
 
-        Table~\ref{tab:sherpa_xs_comparison} presents a comparison of the absolute cross-sections ($\sigma_{\text{gen}}$) and the corresponding expected yields ($N_{\text{exp}}$) in the SR obtained via these two methods: the integration log output (New) and the averaged \verb|HepMC| weights (Old). 
+        Table~\ref{tab:sherpa_xs_comparison} presents a comparison of the absolute cross-sections ($\sigma_{\text{gen}}$) and the corresponding expected yields ($N_{\text{exp}}$) in the SR obtained via these two methods: the integration log output (New) and the averaged \verb|HepMC| weights (Old).
 
         \begin{table}[htpb]
             \centering
@@ -666,7 +667,7 @@
             \begin{tabular}{l|rr|rr|r}
                 \hline
                 \hline
-                Sample & $\sigma_{\text{gen}}^{\text{New}}$ [fb] & $\sigma_{\text{gen}}^{\text{Old}}$ [fb] & $N_{\text{exp}}^{\text{New}}$ & $N_{\text{exp}}^{\text{Old}}$ & Diff. \\ 
+                Sample & $\sigma_{\text{gen}}^{\text{New}}$ [fb] & $\sigma_{\text{gen}}^{\text{Old}}$ [fb] & $N_{\text{exp}}^{\text{New}}$ & $N_{\text{exp}}^{\text{Old}}$ & Diff. \\
                 \hline
                 $W^{\pm}W^{\pm}jj$ EW  & 7.895  & 8.689  & 178.22 & 196.14 & $-$9.13\% \\
                 $W^{\pm}W^{\pm}jj$ QCD & 2.245  & 2.441  & 17.88  & 19.44  & $-$8.01\% \\
@@ -683,17 +684,17 @@
 
     \subsection{MadGraph Run Card Selection Criteria Issues}% (fold)
     \label{sub:madgraph_run_card_selection_criteria_issue}
-        
+
         To increase the event generation efficiency for the SR phase space, we applied kinematic cuts at the generator level (as detailed in Section~\ref{sub:ww_center_of_mass_reference_frame}). While these cuts are appropriate for generating pure $W^{\pm}W^{\pm}jj$ signal samples, they introduce biases when extending the analysis to Control Regions (CR) or simulating reducible backgrounds such as $W^{\pm}Zjj$.
 
         For the CR, the analysis investigates the low-$m_{jj}$ region, specifically $200~\mathrm{GeV} < m_{jj} < 500~\mathrm{GeV}$. The previous generator-level cut of \verb|set run_card mmjj 480| is problematic, as it truncates almost all valid events that would populate this CR.
 
-        Furthermore, for the $W^{\pm}Zjj \to \ell\nu\ell\ell$ background, the global lepton transverse momentum cut \verb|set run_card ptl 26.0| causes a underestimation. The \verb|ptl| parameter in \verb|MadGraph| enforces a minimum $p_{\text{T}}$ requirement on \textit{all} generated leptons. 
-        
+        Furthermore, for the $W^{\pm}Zjj \to \ell\nu\ell\ell$ background, the global lepton transverse momentum cut \verb|set run_card ptl 26.0| causes a underestimation. The \verb|ptl| parameter in \verb|MadGraph| enforces a minimum $p_{\text{T}}$ requirement on \textit{all} generated leptons.
+
         \textbf{Example:} Consider a $W^+Z \to \ell^+ \nu \ell^+ \ell^-$ event where the two same-sign leptons have $p_{\text{T}} = 45~\mathrm{GeV}$ and $35~\mathrm{GeV}$, while the third lepton ($\ell^-$) is soft with $p_{\text{T}} = 15~\mathrm{GeV}$. In the detector simulation, this soft $\ell^-$ might be ``lost'' (e.g., falling outside the acceptance or failing identification), leaving exactly two same-sign leptons that pass the SR cuts ($p_{\text{T}} > 27~\mathrm{GeV}$). However, because the third lepton's $p_{\text{T}}$ is lower than the $26.0~\mathrm{GeV}$ threshold, \verb|MadGraph| will discard this event at the generation level. Consequently, this topology is completely lost.
 
         To resolve these issues, the \verb|MadGraph| run card scripts must be updated to use looser, ordered cuts. Taking the QCD $W^{\pm}Zjj$ process as an example:
-        
+
         \begin{lstlisting}
             generate p p > w+ z j j QCD<=2 QED<=2, w+ > l+ vl, z > l+ l-
             add process p p > w- z j j QCD<=2 QED<=2, w- > l- vl~, z > l+ l-
@@ -745,7 +746,7 @@
             \begin{tabular}{l|ccc|cc}
                 \hline
                 \hline
-                Process & ATLAS & Thesis 9.1 & Thesis G.2 & MG 3.7.0 & Sherpa 3.0.3 \\ 
+                Process & ATLAS & Thesis 9.1 & Thesis G.2 & MG 3.7.0 & Sherpa 3.0.3 \\
                 \hline
                 $W^{\pm}W^{\pm}jj$ EW  & $235$  & 206.52 & 211.29 & 204.08 & 178.22 \\
                 $W^{\pm}W^{\pm}jj$ QCD & $24$   & 24.05  & 24.27  & 14.48  & 17.88  \\
@@ -759,6 +760,97 @@
     % subsection madgraph_run_card_selection_criteria_issue (end)
 
 % section monte_carlo_simulation (end)
+
+\section{Dense Neural Network}% (fold)
+\label{sec:dense_neural_network}
+
+    Because the kinematic relationships between the signal and background processes are complex, a single variable is insufficient for optimal separation. Therefore, multivariate analysis techniques, specifically Deep Neural Networks (DNNs), are employed to extract sensitive features to distinguish signal and background events~\cite{ATLAS:2025wuw}. We consider the Dense Neural Neworks (Dense-NNs) as our first trial.
+
+    \subsection{Input Features}% (fold)
+    \label{sub:input_features}
+
+        The Dense-NN relies on a set of low-level and high-level kinematic variables. These input features are defined as follows:
+        \begin{itemize}
+            \item $(p_{\text{T}}^{l}, \eta^{l}, \text{flavor}^{l})$: Transverse momentum, pseudorapidity, and flavor type of the leading and sub-leading leptons.
+
+            \item $(p_{\text{T}}^{j}, \eta^{j})$: Transverse momentum and pseudorapidity of the leading and sub-leading jets.
+
+            \item $E_{\text{T}}^{\text{miss}}$: Missing transverse momentum magnitude.
+
+            \item $\Delta\phi(x, \ell_1)$: Difference in azimuthal angle between the object $x$ and the leading lepton. The object $x$ can be the sub-leading lepton, leading jet, sub-leading jet, or the missing transverse momentum $E_{\text{T}}^{\text{miss}}$.
+
+            \item $Z_{\ell}^{\star}$: Zeppenfeld variables~\cite{Rainwater:1996ud} of the leading and sub-leading leptons. The pseudorapidities of the leptons and tagging jets are used to define this variable:
+                \begin{equation}
+                    Z_{\ell}^{\star} = \abs{\frac{\eta_\ell - \frac{1}{2} \left( \eta_{j_1} + \eta_{j_2} \right) }{\eta_{j_1} - \eta_{j_2}}}.
+                \end{equation}
+
+            \item $m_\text{T}(x, E_{\text{T}}^{\text{miss}})$: Transverse mass of the object $x$ and the $E_{\text{T}}^{\text{miss}}$ system. The object $x$ can be the leading lepton, sub-leading lepton, or the di-lepton system. The standard definition for a two-object system is:
+                \begin{equation}
+                    m_\text{T}(x, E_{\text{T}}^{\text{miss}}) = \sqrt{\left( E_{\text{T}}^{x} + E_{\text{T}}^{\text{miss} } \right)^2 - \left| \vec{p}_{\text{T}}^{x} + \vec{p}_{\text{T}}^{\text{miss}} \right|^2},
+                \end{equation}
+                where the scalar transverse energy is evaluated as $E_{\text{T}} = \sqrt{m^2 + |\vec{p}_{\text{T}}|^2}$.
+
+            \item $m_{\text{T}}^{0}$: Projected transverse mass:
+                \begin{equation}
+                    m_{\text{T}}^{0} = \sqrt{\left( p_{\text{T}}^{\ell_1} + p_{\text{T}}^{\ell_2} + E_{\text{T}}^{\text{miss} } \right)^2 - \left| \vec{p}_{\text{T}}^{\ell_1} + \vec{p}_{\text{T}}^{\ell_2} + \vec{p}_{\text{T}}^{\text{miss}} \right|^2}.
+                \end{equation}
+                Because the rest mass of an electron or muon is negligible in this high-energy context ($m \approx 0$), the transverse energy of a single lepton simplifies to its transverse momentum ($E_{\text{T}}^{\ell} \approx p_{\text{T}}^{\ell}$). The key difference between the standard di-lepton transverse mass ($m_{\text{T}}$) and the projected transverse mass ($m_{\text{T}}^{0}$) lies in how the scalar energy sum is constructed. The standard $m_{\text{T}}$ treats the two leptons as a single composite system, whereas $m_{\text{T}}^{0}$ treats the two leptons as separate massless entities and directly sums their individual scalar transverse momenta.
+
+            \item $(\Delta R_{\ell\ell}, \Delta\eta_{\ell\ell}, m_{\ell\ell}, p_{\text{T}}^{\ell\ell})$: Angular distance $\Delta R$, pseudorapidity difference, invariant mass, and transverse momentum of the di-lepton system.
+
+            \item $(\Delta R_{jj}, \Delta y_{jj}, m_{jj}, \Delta\phi_{jj})$: Angular distance $\Delta R$, rapidity difference, invariant mass, and azimuthal angle difference of the di-jet system.
+
+            \item $\displaystyle \frac{p_{\text{T}}^{\ell_1} p_{\text{T}}^{\ell_2}}{p_{\text{T}}^{j_1} p_{\text{T}}^{j_2}}$: Ratio of the scalar transverse momenta products of the leptons to the jets.
+
+            \item $\min(\Delta R_{\ell, j})$: Minimum angular distance $\Delta R$ between any of the signal leptons and jets.
+        \end{itemize}
+
+    % subsection input_features (end)
+
+    \subsection{Dataset Construction and Validation Strategy}% (fold)
+    \label{sub:datasets_construction}
+
+        To ensure the robustness of the neural network models and prevent over-training, a 5-fold cross-validation strategy is employed in the ATLAS analysis. The total dataset is separating into training, validation, and test sets with a fixed ratio of 3:1:1.
+
+        The assignment of each event to a specific subset is determined by its event number. For a given fold index $i_{\text{fold}} \in \{0, 1, 2, 3, 4\}$, the splitting rule is defined as follows:
+        \begin{itemize}
+            \item \textbf{Test Set}: Events satisfying $(\text{Event Number} - i_{\text{fold}}) \pmod 5 = 0$.
+            \item \textbf{Validation Set}: Events satisfying $(\text{Event Number} - i_{\text{fold}} + 1) \pmod 5 = 0$.
+            \item \textbf{Training Set}: All remaining events that do not fall into the test or validation sets.
+        \end{itemize}
+
+        The training processes are divided into two distinct stages: a primary inclusive network ($\text{DNN}_{W^{\pm}W^{\pm}}$) designed to separate the EW signal from all backgrounds, and secondary polarization-specific networks ($\text{DNN}_{\text{pol}}$) trained exclusively on the EW samples to distinguish specific polarization states.
+
+        Table~\ref{tab:dnn_dataset_composition} details the exact physics processes used for these neural networks and their corresponding class labels (Signal or Background) in the reference thesis~\cite{stange2025longitudinal}. For the polarization networks, the mixed states are grouped such that ``LX'' denotes the sum of LL and TL states, while ``TX'' denotes the sum of TL and TT states.
+        \begin{table}[htbp]
+            \centering
+            \caption{Process usage and assigned labels across the different DNN training stages based on the reference thesis~\cite{stange2025longitudinal}. Labels are denoted as S = Signal, B = Background, and - = Not Used. The LX category represents the sum of the LL and TL states, whereas TX represents the sum of the TL and TT states.}
+            \label{tab:dnn_dataset_composition}
+            \begin{tabular}{lcccc}
+            \toprule
+            Physics Process & Gen. Events & $\text{DNN}_{W^{\pm}W^{\pm}}$ & \begin{tabular}{@{}c@{}}$\mathrm{DNN}_{\text{pol}}$ \\ (LL vs TX)\end{tabular} & \begin{tabular}{@{}c@{}}$\mathrm{DNN}_{\text{pol}}$ \\ (LX vs TT)\end{tabular} \\
+            \midrule
+            $W^{\pm}W^{\pm}jj$-EW LL (WW-cmf)  & 215,008 & S & S & S \\
+            $W^{\pm}W^{\pm}jj$-EW TL (WW-cmf)  & 170,387 & S & B & S \\
+            $W^{\pm}W^{\pm}jj$-EW TT (WW-cmf)  & 456,456 & S & B & B \\
+            $W^{\pm}W^{\pm}jj$-EW LL (pp-cmf)  & 19,673  & S & - & - \\
+            $W^{\pm}W^{\pm}jj$-EW TL (pp-cmf)  & 21,471  & S & - & - \\
+            $W^{\pm}W^{\pm}jj$-EW TT (pp-cmf)  & 46,320  & S & - & - \\
+            $W^{\pm}W^{\pm}jj$-EW (Unpol.)     & 201,488 & S & - & - \\
+            $W^{\pm}W^{\pm}jj$-QCD             & 25,375  & B & - & - \\
+            $W^{\pm}W^{\pm}jj$-Int.            & 79,805  & B & - & - \\
+            $W^{\pm}Z$-EW                      & 8,273   & B & - & - \\
+            $W^{\pm}Z$-QCD (Comb.)             & 49,999  & B & - & - \\
+            Top quark processes                & 2,192   & B & - & - \\
+            $ZZ$ production                    & 2,880   & B & - & - \\
+            Charge-flip                        & 8,231   & B & - & - \\
+            \bottomrule
+            \end{tabular}
+        \end{table}
+
+    % subsection datasets_construction (end)
+
+% section dense_neural_network (end)
 
 \bibliographystyle{ieeetr}
 \bibliography{reference}
