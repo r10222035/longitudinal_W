@@ -18,6 +18,12 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+try:
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover - fallback for minimal environments
+    def tqdm(iterable, **kwargs):
+        return iterable
+
 # Ensure `selection` package import works whether invoked from repo root or Sample.
 _THIS_FILE = Path(__file__).resolve()
 _SAMPLE_DIR = _THIS_FILE.parent.parent
@@ -125,7 +131,12 @@ def _init_feature_store() -> dict[str, list]:
     }
 
 
-def _extract_features(tree, max_events: int | None = None) -> tuple[dict[str, np.ndarray], dict[str, int], dict[str, int]]:
+def _extract_features(
+    tree,
+    max_events: int | None = None,
+    show_progress: bool = True,
+    progress_desc: str | None = None,
+) -> tuple[dict[str, np.ndarray], dict[str, int], dict[str, int]]:
     n_entries = int(tree.GetEntries())
     n_loop = n_entries if max_events is None else min(n_entries, max_events)
 
@@ -141,7 +152,14 @@ def _extract_features(tree, max_events: int | None = None) -> tuple[dict[str, np
         "pt_ratio_nan_count": 0,
     }
 
-    for i in range(n_loop):
+    event_iter = tqdm(
+        range(n_loop),
+        desc=progress_desc or "Event loop",
+        unit="evt",
+        disable=not show_progress,
+    )
+
+    for i in event_iter:
         tree.GetEntry(i)
         cutflow[CUT_STAGE["total"]] += 1
 
@@ -316,6 +334,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default=50000,
         help="Parquet row-group size for write_table.",
     )
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Disable event-level progress bar.",
+    )
     return parser
 
 
@@ -336,7 +359,13 @@ def main() -> int:
         f.Close()
         raise RuntimeError(f"Cannot find TTree '{args.tree}' in {input_path}")
 
-    features, cutflow, diagnostics = _extract_features(tree, max_events=args.max_events)
+    progress_desc = f"events: {input_path.name}"
+    features, cutflow, diagnostics = _extract_features(
+        tree,
+        max_events=args.max_events,
+        show_progress=not args.no_progress,
+        progress_desc=progress_desc,
+    )
     f.Close()
 
     n_passed = int(cutflow[CUT_STAGE["jet"]])

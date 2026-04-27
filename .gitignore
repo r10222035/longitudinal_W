@@ -16,3 +16,7 @@ config_files/
 *.sh
 Sample/MG5/
 Sample/Sherpa/
+Sample/Parquet/
+
+.vscode
+
