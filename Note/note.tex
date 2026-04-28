@@ -105,9 +105,12 @@
 %
 \graphicspath{{../figures/}}
 
+% \usepackage{tikz}
+% \usetikzlibrary{positioning}
+% \usetikzlibrary{calc}
+
 \usepackage{tikz}
-\usetikzlibrary{positioning}
-\usetikzlibrary{calc}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc, backgrounds}
 
 \usepackage{listings}
 \usepackage{lstautogobble}
@@ -893,78 +896,143 @@
     % subsection datasets_construction (end)
 
 
+
     \subsection{Kinematic Distributions}% (fold)
     \label{sub:kinematic_distributions}
 
         To illustrate the separation power of the input features, we present the normalized distributions of several key kinematic variables. The comparisons are divided into two categories, reflecting the two-stage strategy of the Dense-NN training: (1) separating the $W^{\pm}W^{\pm}jj$-EW signal from various background processes, and (2) distinguishing between the different polarization states of the $W^{\pm}W^{\pm}jj$ electroweak production.
 
 
-    \subsubsection{Signal vs Background Discrimination}% (fold)
-    \label{subs:signal_vs_background_discrimination}
-        In the first stage of the DNN, the goal is to isolate the inclusive $W^{\pm}W^{\pm}jj$-EW signal from the dominant backgrounds, which include $W^{\pm}W^{\pm}jj$-QCD, $W^{\pm}Zjj$-EW, and $W^{\pm}Zjj$-QCD.
+        \subsubsection{Signal vs Background Discrimination}% (fold)
+        \label{subs:signal_vs_background_discrimination}
+            In the first stage of the DNN, the goal is to isolate the inclusive $W^{\pm}W^{\pm}jj$-EW signal from the dominant backgrounds, which include $W^{\pm}W^{\pm}jj$-QCD, $W^{\pm}Zjj$-EW, and $W^{\pm}Zjj$-QCD.
 
-        Figure~\ref{fig:dist_bkg} shows the distributions of six features. The VBS signature is characterized by two forward jets with a large invariant mass ($m_{jj}$) and a large pseudorapidity gap ($\abs{\Delta\eta_{jj}}$), making them powerful discriminants against QCD-induced processes. Furthermore, the Zeppenfeld variable ($Z_{\ell_1}^{\star}$) quantifies the centrality of the lepton relative to the tagging jets; signal leptons tend to fall between the two forward jets. General kinematics, such as the leading jet transverse momentum ($p_{\text{T}}^{j_1}$), di-lepton invariant mass ($m_{\ell\ell}$), and missing transverse momentum ($E_{\text{T}}^{\text{miss}}$), provide additional discrimination power against the $WZ$ and QCD backgrounds.
+            Figure~\ref{fig:dist_bkg} shows the distributions of six features. The VBS signature is characterized by two forward jets with a large invariant mass ($m_{jj}$) and a large pseudorapidity gap ($\abs{\Delta\eta_{jj}}$), making them powerful discriminants against QCD-induced processes. Furthermore, the Zeppenfeld variable ($Z_{\ell_1}^{\star}$) quantifies the centrality of the lepton relative to the tagging jets; signal leptons tend to fall between the two forward jets. General kinematics, such as the leading jet transverse momentum ($p_{\text{T}}^{j_1}$), di-lepton invariant mass ($m_{\ell\ell}$), and missing transverse momentum ($E_{\text{T}}^{\text{miss}}$), provide additional discrimination power against the $WZ$ and QCD backgrounds.
 
+            \begin{figure}[htbp]
+                \centering
+                % 第一行三張圖
+                \subfloat[$m_{jj}$]{
+                    \includegraphics[width=0.31\textwidth]{sr_overlay_wwzz_mix/overlay_m_jj.pdf}
+                }
+                \subfloat[$\abs{\Delta\eta_{jj}}$]{
+                    \includegraphics[width=0.31\textwidth]{sr_overlay_wwzz_mix/overlay_dy_jj.pdf}
+                }
+                \subfloat[$Z_{\ell_1}^{\star}$]{
+                    \includegraphics[width=0.31\textwidth]{sr_overlay_wwzz_mix/overlay_zstar_l1.pdf}
+                } \\
+                \subfloat[$p_{\text{T}}^{j_1}$]{
+                    \includegraphics[width=0.31\textwidth]{sr_overlay_wwzz_mix/overlay_j1_pt.pdf}
+                }
+                \subfloat[$m_{\ell\ell}$]{
+                    \includegraphics[width=0.31\textwidth]{sr_overlay_wwzz_mix/overlay_m_ll.pdf}
+                }
+                \subfloat[$E_{\text{T}}^{\text{miss}}$]{
+                    \includegraphics[width=0.31\textwidth]{sr_overlay_wwzz_mix/overlay_met_et.pdf}
+                }
+                \caption{Normalized distributions of six key kinematic variables for the inclusive $W^{\pm}W^{\pm}jj$-EW signal and the $W^{\pm}W^{\pm}jj$-QCD, $W^{\pm}Zjj$-EW, and $W^{\pm}Zjj$-QCD backgrounds.}
+                \label{fig:dist_bkg}
+            \end{figure}
+
+        % subsubsection signal_vs_background_discrimination (end)	
+
+        \subsubsection{Polarization Discrimination}% (fold)
+        \label{subs:polarization_discrimination}
+
+            The second stage of the DNN focuses entirely on the $W^{\pm}W^{\pm}jj$-EW process, aiming to separate the longitudinally polarized state (LL) from the transverse states (LT and TT).
+
+            Figure~\ref{fig:dist_pol} illustrates six variables. The $W_{\text{L}}$ bosons tend to emit leptons more centrally and with different spin correlations compared to $W_{\text{T}}$ bosons, leading to distinct shapes in the angular separations $\abs{\Delta\eta_{\ell\ell}}$ and $\Delta\phi_{\ell\ell}$, as well as the leading lepton transverse momentum ($p_{\text{T}}^{\ell_1}$). The transverse mass of the di-lepton system ($m_{\text{T}}$) and the projected transverse mass ($m_{\text{T}}^{0}$) are also sensitive to the different kinematic boundaries of the polarization states. Additionally, the azimuthal angle difference between the jets ($\Delta\phi_{jj}$) carries information about the intermediate vector boson interference in the VBS process.
+
+            \begin{figure}[htbp]
+                \centering
+                % 第一行三張圖
+                \subfloat[$\abs{\Delta\eta_{\ell\ell}}$]{
+                    \includegraphics[width=0.31\textwidth]{sr_overlay_ew_polar/overlay_deta_ll.pdf}
+                }
+                \subfloat[$m_{\text{T}}$]{
+                    \includegraphics[width=0.31\textwidth]{sr_overlay_ew_polar/overlay_mt_ll_met.pdf}
+                }
+                \subfloat[$\Delta\phi_{jj}$]{
+                    \includegraphics[width=0.31\textwidth]{sr_overlay_ew_polar/overlay_dphi_jj.pdf}
+                } \\
+                % 第二行三張圖
+                \subfloat[$p_{\text{T}}^{\ell_1}$]{
+                    \includegraphics[width=0.31\textwidth]{sr_overlay_ew_polar/overlay_j1_pt.pdf}
+                }
+                \subfloat[$m_{\text{T}}^{0}$]{
+                    \includegraphics[width=0.31\textwidth]{sr_overlay_ew_polar/overlay_mt0_ll_met.pdf}
+                }
+                \subfloat[$\Delta\phi_{\ell\ell}$]{
+                    \includegraphics[width=0.31\textwidth]{sr_overlay_ew_polar/overlay_dphi_l2_l1.pdf}
+                }
+                \caption{Normalized distributions of six polarization-sensitive variables for the LL, LT, and TT polarization states of the $W^{\pm}W^{\pm}jj$-EW process.}
+                \label{fig:dist_pol}
+            \end{figure}
+
+        % subsubsection polarization_discrimination (end)
+
+    % subsection kinematic_distributions (end)
+
+    \subsection{Neural Network Architecture}% (fold)
+    \label{sub:neural_network_architecture}
+
+        The Dense-NN architecture utilized in the analysis is presented in Figure~\ref{fig:dnn_architecture}. 
+
+        The network begins with an input normalization layer. This layer applies the scaling to the input features first. Then, normalizing the resulting distribution to have a mean of 0 and a variance of 1.
+
+        Following the nomalization layer, the architecture relies on a core block consisting of a fully-connected (dense) layer, a Batch Normalization layer, a Swish~\cite{DBLP:journals/corr/abs-1710-05941} activation function, and a Dropout layer for regularization. This composite block is repeated $L$ times to form the deep hidden layers of the network.
+
+        Finally, the network terminates with an output dense layer.
         \begin{figure}[htbp]
             \centering
-            % 第一行三張圖
-            \subfloat[$m_{jj}$]{
-                \includegraphics[width=0.31\textwidth]{sr_overlay_wwzz_mix/overlay_m_jj.pdf}
-            }
-            \subfloat[$\abs{\Delta\eta_{jj}}$]{
-                \includegraphics[width=0.31\textwidth]{sr_overlay_wwzz_mix/overlay_dy_jj.pdf}
-            }
-            \subfloat[$Z_{\ell_1}^{\star}$]{
-                \includegraphics[width=0.31\textwidth]{sr_overlay_wwzz_mix/overlay_zstar_l1.pdf}
-            } \\
-            \subfloat[$p_{\text{T}}^{j_1}$]{
-                \includegraphics[width=0.31\textwidth]{sr_overlay_wwzz_mix/overlay_j1_pt.pdf}
-            }
-            \subfloat[$m_{\ell\ell}$]{
-                \includegraphics[width=0.31\textwidth]{sr_overlay_wwzz_mix/overlay_m_ll.pdf}
-            }
-            \subfloat[$E_{\text{T}}^{\text{miss}}$]{
-                \includegraphics[width=0.31\textwidth]{sr_overlay_wwzz_mix/overlay_met_et.pdf}
-            }
-            \caption{Normalized distributions of six key kinematic variables for the inclusive $W^{\pm}W^{\pm}jj$-EW signal and the $W^{\pm}W^{\pm}jj$-QCD, $W^{\pm}Zjj$-EW, and $W^{\pm}Zjj$-QCD backgrounds.}
-            \label{fig:dist_bkg}
+            \begin{tikzpicture}[
+                node distance=1.2cm,
+                % 定義方塊樣式，文字旋轉 90 度
+                box/.style={rectangle, draw=black, thick, minimum width=1.2cm, minimum height=3.5cm, align=center, fill=gray!10, font=\small},
+                block/.style={rectangle, draw=black, thick, minimum width=1.0cm, minimum height=3.0cm, align=center, fill=white, font=\small},
+                arrow/.style={thick, -{Stealth[scale=1.2]}}
+            ]
+
+            % 1. 輸入與常態化層
+            \node (input) [box, fill=green!5] {\rotatebox{90}{Input}};
+            \node (norm) [box, right=of input] {\rotatebox{90}{Normalization}};
+
+            % 2. 隱藏層區塊 (重複單元)
+            \node (dense) [block, right=of norm] {\rotatebox{90}{Dense}};
+            \node (bn) [block, right=0.4cm of dense] {\rotatebox{90}{Batch Norm}};
+            \node (swish) [block, right=0.4cm of bn] {\rotatebox{90}{Swish}};
+            \node (dropout) [block, right=0.4cm of swish] {\rotatebox{90}{Dropout}};
+
+            % 使用虛線框住重複區塊
+            \node[draw=blue, dashed, inner xsep=0.3cm, inner ysep=0.3cm, fit=(dense) (dropout)] (hidden_block) {};
+            \node[anchor=south, color=blue] at (hidden_block.north) {Repeated $L$ times};
+
+            % 3. 輸出層
+            \node (output) [box, fill=red!5, right=of hidden_block] {\rotatebox{90}{Output}};
+
+            % 連接箭頭
+            \draw [arrow] (input) -- (norm);
+            \draw [arrow] (norm) -- (hidden_block.west |- dense);
+            \draw [arrow] (hidden_block.east |- dense) -- (output);
+
+            % 區塊內部連接箭頭
+            \draw [arrow] (dense) -- (bn);
+            \draw [arrow] (bn) -- (swish);
+            \draw [arrow] (swish) -- (dropout);
+
+            \end{tikzpicture}
+            \caption{Schematic representation of the feed-forward neural network architecture. The sequence begins with an input normalization layer. The core architecture consists of $L$ repeated hidden layers, each comprising a dense layer with a constant number of neurons, followed by batch normalization, a Swish activation function, and a dropout layer for regularization. The final dense layer provides the binary classification output.}
+            \label{fig:dnn_architecture}
         \end{figure}
 
-    % subsubsection signal_vs_background_discrimination (end)	
+        The Swish activation function utilized in the hidden blocks is defined as:
+        \begin{equation}
+            \mathrm{swish}_{\beta}(x) = \frac{x}{1 + \euler^{-\beta x}}
+        \end{equation}
+        where $\beta$ is a learnable parameter or a fixed constant. Unlike ReLU, Swish is smooth and non-monotonic, characteristics that have been shown to improve gradient propagation and performance in deep networks.
+        
+    % subsection neural_network_architecture (end)
 
-    \subsubsection{Polarization Discrimination}% (fold)
-    \label{subs:polarization_discrimination}
-        The second stage of the DNN focuses entirely on the $W^{\pm}W^{\pm}jj$-EW process, aiming to separate the longitudinally polarized state (LL) from the transverse states (LT and TT).
-
-        Figure~\ref{fig:dist_pol} illustrates six variables. The $W_{\text{L}}$ bosons tend to emit leptons more centrally and with different spin correlations compared to $W_{\text{T}}$ bosons, leading to distinct shapes in the angular separations $\abs{\Delta\eta_{\ell\ell}}$ and $\Delta\phi_{\ell\ell}$, as well as the leading lepton transverse momentum ($p_{\text{T}}^{\ell_1}$). The transverse mass of the di-lepton system ($m_{\text{T}}$) and the projected transverse mass ($m_{\text{T}}^{0}$) are also sensitive to the different kinematic boundaries of the polarization states. Additionally, the azimuthal angle difference between the jets ($\Delta\phi_{jj}$) carries information about the intermediate vector boson interference in the VBS process.
-
-        \begin{figure}[htbp]
-            \centering
-            % 第一行三張圖
-            \subfloat[$\abs{\Delta\eta_{\ell\ell}}$]{
-                \includegraphics[width=0.31\textwidth]{sr_overlay_ew_polar/overlay_deta_ll.pdf}
-            }
-            \subfloat[$m_{\text{T}}$]{
-                \includegraphics[width=0.31\textwidth]{sr_overlay_ew_polar/overlay_mt_ll_met.pdf}
-            }
-            \subfloat[$\Delta\phi_{jj}$]{
-                \includegraphics[width=0.31\textwidth]{sr_overlay_ew_polar/overlay_dphi_jj.pdf}
-            } \\
-            % 第二行三張圖
-            \subfloat[$p_{\text{T}}^{\ell_1}$]{
-                \includegraphics[width=0.31\textwidth]{sr_overlay_ew_polar/overlay_j1_pt.pdf}
-            }
-            \subfloat[$m_{\text{T}}^{0}$]{
-                \includegraphics[width=0.31\textwidth]{sr_overlay_ew_polar/overlay_mt0_ll_met.pdf}
-            }
-            \subfloat[$\Delta\phi_{\ell\ell}$]{
-                \includegraphics[width=0.31\textwidth]{sr_overlay_ew_polar/overlay_dphi_l2_l1.pdf}
-            }
-            \caption{Normalized distributions of six polarization-sensitive variables for the LL, LT, and TT polarization states of the $W^{\pm}W^{\pm}jj$-EW process.}
-            \label{fig:dist_pol}
-        \end{figure}
-
-    % subsubsection polarization_discrimination (end)	
 
 % section dense_neural_network (end)
 
