@@ -855,7 +855,7 @@
     \subsection{Dataset Construction and Validation Strategy}% (fold)
     \label{sub:datasets_construction}
 
-        To ensure the robustness of the neural network models and prevent over-training, a 5-fold cross-validation strategy is employed in the ATLAS analysis. The total dataset is separating into training, validation, and test sets with a fixed ratio of 3:1:1.
+        To ensure the robustness of the neural network models and prevent over-training, a 5-fold cross-validation strategy is employed, which is used in the ATLAS analysis. The total dataset is partitioned into training, validation, and test sets with a fixed ratio of 3:1:1.
 
         The assignment of each event to a specific subset is determined by its event number. For a given fold index $i_{\text{fold}} \in \{0, 1, 2, 3, 4\}$, the splitting rule is defined as follows:
         \begin{itemize}
@@ -875,12 +875,12 @@
             \toprule
             Physics Process & Gen. Events & $\text{DNN}_{W^{\pm}W^{\pm}}$ & \begin{tabular}{@{}c@{}}$\mathrm{DNN}_{\text{pol}}$ \\ (LL vs TX)\end{tabular} & \begin{tabular}{@{}c@{}}$\mathrm{DNN}_{\text{pol}}$ \\ (LX vs TT)\end{tabular} \\
             \midrule
-            $W^{\pm}W^{\pm}jj$-EW LL (WW-cmf)  & 215,008 & S & S & S \\
-            $W^{\pm}W^{\pm}jj$-EW TL (WW-cmf)  & 170,387 & S & B & S \\
-            $W^{\pm}W^{\pm}jj$-EW TT (WW-cmf)  & 456,456 & S & B & B \\
-            $W^{\pm}W^{\pm}jj$-EW LL (pp-cmf)  & 19,673  & S & - & - \\
-            $W^{\pm}W^{\pm}jj$-EW TL (pp-cmf)  & 21,471  & S & - & - \\
-            $W^{\pm}W^{\pm}jj$-EW TT (pp-cmf)  & 46,320  & S & - & - \\
+            $W^{\pm}W^{\pm}jj$-EW LL (WW-cmf)  & 215,008 & - & S & S \\
+            $W^{\pm}W^{\pm}jj$-EW TL (WW-cmf)  & 170,387 & - & B & S \\
+            $W^{\pm}W^{\pm}jj$-EW TT (WW-cmf)  & 456,456 & - & B & B \\
+            $W^{\pm}W^{\pm}jj$-EW LL (pp-cmf)  & 19,673  & - & - & - \\
+            $W^{\pm}W^{\pm}jj$-EW TL (pp-cmf)  & 21,471  & - & - & - \\
+            $W^{\pm}W^{\pm}jj$-EW TT (pp-cmf)  & 46,320  & - & - & - \\
             $W^{\pm}W^{\pm}jj$-EW (Unpol.)     & 201,488 & S & - & - \\
             $W^{\pm}W^{\pm}jj$-QCD             & 25,375  & B & - & - \\
             $W^{\pm}W^{\pm}jj$-Int.            & 79,805  & B & - & - \\
@@ -893,9 +893,13 @@
             \end{tabular}
         \end{table}
 
-    % subsection datasets_construction (end)
+        Each fold is used to train an individual Dense-NN, resulting in an ensemble of five distinct networks. Crucially, this 5-fold application strategy is essential to prevent evaluation bias when predicting the final scores. 
 
+    In the reference thesis~\cite{stange2025longitudinal}, the author states that ``predictions obtained using testing datasets can be assumed to be identically distributed as the predictions on measured data'' and that ``the prediction is calculated using the DNN where the respective events were part of the testing dataset.'' However, the thesis omits a direct procedural description of how to handle the experimental data, which possesses no true labels and never participates in the training, validation, or testing splits. 
 
+    To bridge this methodological gap and ensure a statistically rigorous evaluation, we \textit{infer} that the experimental data must be processed using the identical splitting rule applied to the Monte Carlo samples. Specifically, for any given event, the modulo operation $(\text{Event Number}) \pmod 5 = i_{\text{fold}}$ dictates which specific network in the ensemble ($\text{DNN}_{i}$) is exclusively used to score it. This method guarantees that the evaluation of the experimental data perfectly mirrors the independent evaluation of the respective MC test sets, thereby preserving the identically distributed assumption.
+
+    % subsection datasets_construction (end) 
 
     \subsection{Kinematic Distributions}% (fold)
     \label{sub:kinematic_distributions}
@@ -1032,7 +1036,6 @@
         where $\beta$ is a learnable parameter or a fixed constant. Unlike ReLU, Swish is smooth and non-monotonic, characteristics that have been shown to improve gradient propagation and performance in deep networks.
         
     % subsection neural_network_architecture (end)
-
 
 % section dense_neural_network (end)
 
