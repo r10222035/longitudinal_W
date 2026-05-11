@@ -164,7 +164,7 @@
 
     \subsection{Sample Generation}% (fold)
     \label{sub:sample_generation}
-        The signal processes are the electroweak (EW) production of $W^{\pm}W^{\pm}jj$ in various polarization states. We simulate the EW same-sign $W$ boson pair production at a center-of-mass energy of $\sqrt{s} = 13~\text{TeV}$. The events are generated using \verb|MadGraph 3.3.1|~\cite{Alwall:2014hca}. Both $W$ bosons are forced to decay leptonically. Parton showering and hadronization are simulated with \verb|Pythia 8.306|~\cite{Sjostrand:2014zea}, followed by a fast detector simulation using \verb|Delphes 3.4.2|~\cite{deFavereau:2013fsa}. Jets are reconstructed via the anti-$k_t$ algorithm~\cite{Cacciari:2008gp} with a distance parameter of $R = 0.4$, implemented in \verb|FastJet 3.3.2|~\cite{Cacciari:2011ma}. Reconstructed jets are required to have a transverse momentum of $p_{\text{T}} > 25~\text{GeV}$.
+        The signal processes are the electroweak (EW) production of $W^{\pm}W^{\pm}jj$ in various polarization states. We simulate the EW same-sign $W$ boson pair production at a center-of-mass energy of $\sqrt{s} = 13~\text{TeV}$. The events are generated using \verb|MadGraph 3.3.1|~\cite{Alwall:2014hca}. Both $W$ bosons must decay leptonically. Parton showering and hadronization are simulated with \verb|Pythia 8.306|~\cite{Sjostrand:2014zea}, followed by a fast detector simulation using \verb|Delphes 3.4.2|~\cite{deFavereau:2013fsa}. Jets are reconstructed via the anti-$k_t$ algorithm~\cite{Cacciari:2008gp} with a distance parameter of $R = 0.4$, implemented in \verb|FastJet 3.3.2|~\cite{Cacciari:2011ma}. Reconstructed jets are required to have a transverse momentum of $p_{\text{T}} > 25~\text{GeV}$.
 
         The following \verb|MadGraph| scripts are used to generate the Monte Carlo (MC) samples for these polarized processes:
 
@@ -394,7 +394,7 @@
 
         To investigate the cross-section discrepancy, we employ a different Monte Carlo generator, \verb|Sherpa 3|~\cite{Sherpa:2024mfk}, which is also the primary generator utilized in the ATLAS analysis.
 
-        We simulate the EW same-sign $W$ boson pair production at a center-of-mass energy of $\sqrt{s} = 13$ TeV. Both $W$ bosons are forced to decay leptonically. Parton showering and hadronization are handled internally by \verb|Sherpa|, followed by a fast detector simulation using \verb|Delphes 3.4.2|~\cite{deFavereau:2013fsa}. Jets are reconstructed via the anti-$k_t$ algorithm~\cite{Cacciari:2008gp} with a distance parameter of $R = 0.4$, implemented in \verb|FastJet 3.3.2|~\cite{Cacciari:2011ma}. The reconstructed jets are required to have a transverse momentum of $p_{\text{T}} > 25$ GeV.
+        We simulate the EW same-sign $W$ boson pair production at a center-of-mass energy of $\sqrt{s} = 13$ TeV. Both $W$ bosons must decay leptonically. Parton showering and hadronization are handled internally by \verb|Sherpa|, followed by a fast detector simulation using \verb|Delphes 3.4.2|~\cite{deFavereau:2013fsa}. Jets are reconstructed via the anti-$k_t$ algorithm~\cite{Cacciari:2008gp} with a distance parameter of $R = 0.4$, implemented in \verb|FastJet 3.3.2|~\cite{Cacciari:2011ma}. The reconstructed jets are required to have a transverse momentum of $p_{\text{T}} > 25$ GeV.
 
         Unlike \verb|MadGraph|, which can generate pure polarized samples, \verb|Sherpa| generates events and assigns polarization weights to each of them. These weights represent the probability of an event belonging to a specific polarization state. Due to technical constraints within the generator, the $W^{+}W^{+}jj$ and $W^{-}W^{-}jj$ processes must be generated as separate samples.
 
@@ -734,7 +734,7 @@
 
         For the CR, the analysis investigates the low-$m_{jj}$ region, specifically $200~\mathrm{GeV} < m_{jj} < 500~\mathrm{GeV}$. The previous generator-level cut of \verb|set run_card mmjj 480| is problematic, as it truncates almost all valid events that would populate this CR.
 
-        Furthermore, for the $W^{\pm}Zjj \to \ell\nu\ell\ell$ background, the global lepton transverse momentum cut \verb|set run_card ptl 26.0| causes a underestimation. The \verb|ptl| parameter in \verb|MadGraph| enforces a minimum $p_{\text{T}}$ requirement on \textit{all} generated leptons.
+        Furthermore, for the $W^{\pm}Zjj \to \ell\nu\ell\ell$ background, the global lepton transverse momentum cut \verb|set run_card ptl 26.0| causes an underestimation. The \verb|ptl| parameter in \verb|MadGraph| enforces a minimum $p_{\text{T}}$ requirement on \textit{all} generated leptons.
 
         \textbf{Example:} Consider a $W^+Z \to \ell^+ \nu \ell^+ \ell^-$ event where the two same-sign leptons have $p_{\text{T}} = 45~\mathrm{GeV}$ and $35~\mathrm{GeV}$, while the third lepton ($\ell^-$) is soft with $p_{\text{T}} = 15~\mathrm{GeV}$. In the detector simulation, this soft $\ell^-$ might be ``lost'' (e.g., falling outside the acceptance or failing identification), leaving exactly two same-sign leptons that pass the SR cuts ($p_{\text{T}} > 27~\mathrm{GeV}$). However, because the third lepton's $p_{\text{T}}$ is lower than the $26.0~\mathrm{GeV}$ threshold, \verb|MadGraph| will discard this event at the generation level. Consequently, this topology is completely lost.
 
@@ -783,7 +783,7 @@
         The primary changes include relaxing the dijet invariant mass baseline to \verb|mmjj 150.0|, and replacing the global \verb|ptl| cut with ordered lepton cuts: \verb|ptl1min 20.0| and \verb|ptl2min 20.0|. This ensures that only the leading and subleading leptons are constrained, leaving the third lepton unrestricted. Other kinematic variables are relaxed to safely encompass the full reconstructed-level phase space.
 
 
-        Table~\ref{tab:background_yields_updated} presents the updated event yields in the SR. In this revised comparison, we utilized the cross-sections from the \verb|Sherpa| log outputs (Section~\ref{sub:what_cross_section_should_be_used_in_sherpa_samples}), and applying the relaxed, ordered generator-level cuts for the \verb|MadGraph| 3.7.0 samples to prevent phase-space truncation (Section~\ref{sub:madgraph_run_card_selection_criteria_issue}).
+        Table~\ref{tab:background_yields_updated} presents the updated event yields in the SR. In this revised comparison, we utilized the cross-sections from the \verb|Sherpa| log outputs (Section~\ref{sub:what_cross_section_should_be_used_in_sherpa_samples}), and applied the relaxed, ordered generator-level cuts for the \verb|MadGraph| 3.7.0 samples to prevent phase-space truncation (Section~\ref{sub:madgraph_run_card_selection_criteria_issue}).
         \begin{table}[htbp]
             \centering
             \caption{Updated expected yields in the SR. The ATLAS results are shown alongside the reference Thesis values and our refined simulation estimates (MG 3.7.0 with relaxed cuts and Sherpa 3.0.3 with log-based cross-sections). All values assume an integrated luminosity of $139~\mathrm{fb}^{-1}$.}
@@ -809,7 +809,7 @@
 \section{Dense Neural Network}% (fold)
 \label{sec:dense_neural_network}
 
-    Because the kinematic relationships between the signal and background processes are complex, a single variable is insufficient for optimal separation. Therefore, multivariate analysis techniques, specifically Deep Neural Networks (DNNs), are employed to extract sensitive features to distinguish signal and background events~\cite{ATLAS:2025wuw}. We consider the Dense Neural Neworks (Dense-NNs) as our first trial.
+    Because the kinematic relationships between the signal and background processes are complex, a single variable is insufficient for optimal separation. Therefore, multivariate analysis techniques, specifically Deep Neural Networks (DNNs), are employed to extract sensitive features to distinguish signal and background events~\cite{ATLAS:2025wuw}. We consider the Dense Neural Networks (Dense-NNs) as our first trial.
 
     \subsection{Input Features}% (fold)
     \label{sub:input_features}
@@ -895,9 +895,9 @@
 
         Each fold is used to train an individual Dense-NN, resulting in an ensemble of five distinct networks. Crucially, this 5-fold application strategy is essential to prevent evaluation bias when predicting the final scores. 
 
-    In the reference thesis~\cite{stange2025longitudinal}, the author states that ``predictions obtained using testing datasets can be assumed to be identically distributed as the predictions on measured data'' and that ``the prediction is calculated using the DNN where the respective events were part of the testing dataset.'' However, the thesis omits a direct procedural description of how to handle the experimental data, which possesses no true labels and never participates in the training, validation, or testing splits. 
+        In the reference thesis~\cite{stange2025longitudinal}, the author states that ``predictions obtained using testing datasets can be assumed to be identically distributed as the predictions on measured data'' and that ``the prediction is calculated using the DNN where the respective events were part of the testing dataset.'' However, the thesis omits a direct procedural description of how to handle the experimental data, which possesses no true labels and never participates in the training, validation, or testing splits. 
 
-    To bridge this methodological gap and ensure a statistically rigorous evaluation, we \textit{infer} that the experimental data must be processed using the identical splitting rule applied to the Monte Carlo samples. Specifically, for any given event, the modulo operation $(\text{Event Number}) \pmod 5 = i_{\text{fold}}$ dictates which specific network in the ensemble ($\text{DNN}_{i}$) is exclusively used to score it. This method guarantees that the evaluation of the experimental data perfectly mirrors the independent evaluation of the respective MC test sets, thereby preserving the identically distributed assumption.
+        To bridge this methodological gap and ensure a statistically rigorous evaluation, we \textit{infer} that the experimental data must be processed using the identical splitting rule applied to the Monte Carlo samples. Specifically, for any given event, the modulo operation $(\text{Event Number}) \pmod 5 = i_{\text{fold}}$ dictates which specific network in the ensemble ($\text{DNN}_{i}$) is exclusively used to score it. This method guarantees that the evaluation of the experimental data mirrors the independent evaluation of the respective MC test sets, thereby preserving the identically distributed assumption.
 
     % subsection datasets_construction (end) 
 
@@ -984,7 +984,7 @@
 
         The network begins with an input normalization layer. This layer applies the scaling to the input features first. Then, normalizing the resulting distribution to have a mean of 0 and a variance of 1.
 
-        Following the nomalization layer, the architecture relies on a core block consisting of a fully-connected (dense) layer, a Batch Normalization layer, a Swish~\cite{DBLP:journals/corr/abs-1710-05941} activation function, and a Dropout layer for regularization. This composite block is repeated $L$ times to form the deep hidden layers of the network.
+        Following the normalization layer, the architecture relies on a core block consisting of a fully-connected (dense) layer, a Batch Normalization layer, a Swish~\cite{DBLP:journals/corr/abs-1710-05941} activation function, and a Dropout layer for regularization. This composite block is repeated $L$ times to form the deep hidden layers of the network.
 
         Finally, the network terminates with an output dense layer.
         \begin{figure}[htbp]
@@ -1036,6 +1036,52 @@
         where $\beta$ is a learnable parameter or a fixed constant. Unlike ReLU, Swish is smooth and non-monotonic, characteristics that have been shown to improve gradient propagation and performance in deep networks.
         
     % subsection neural_network_architecture (end)
+
+    \subsection{Implementation and Preliminary Validation}% (fold)
+    \label{sub:implementation_and_preliminary_validation}
+
+        The neural network architecture, data pipeline, and training loop are implemented using \verb|PyTorch 2.5.1|~\cite{10.1145/3620665.3640366}. To verify the computational setup, we conducted a preliminary validation test on both the primary inclusive task $\text{DNN}_{W^{\pm}W^{\pm}}$ and the secondary polarization task $\text{DNN}_{\text{pol}}$.
+
+        For this initial test, we utilized the complete set of input features described in Section~\ref{sub:input_features}. The dataset comprised approximately 40,000 events for the $\text{DNN}_{W^{\pm}W^{\pm}}$ task and 73,000 events for the $\text{DNN}_{\text{pol}}$ task. The models were trained for 10 epochs using the Adam optimizer with a learning rate of $10^{-3}$ and a batch size of 256. This configuration verified the 5-fold cross-validation as well as the Dense-NN forward and backward propagation.
+
+        Figure~\ref{fig:preliminary_training_curves} illustrates the evolution of the loss and the Area Under the ROC Curve (AUC) across the initial training epochs. The quantitative performance of the models across the 5-fold ensemble is summarized in Table~\ref{tab:preliminary_auc_results}. The negligible discrepancy between the validation and test AUC scores indicates that the data splitting strategy effectively prevents data leakage and over-training, even at this early stage. 
+
+        \begin{table}[htbp]
+            \centering
+            \caption{Preliminary performance of the Dense-NN models after 10 epochs of training. The values represent the mean AUC score and its standard deviation across the 5 independent folds.}
+            \label{tab:preliminary_auc_results}
+            \begin{tabular}{l|cc}
+                \hline
+                \hline
+                Classification Task                   & Validation AUC    & Test AUC          \\ \hline
+                $\text{DNN}_{W^{\pm}W^{\pm}}$         & $0.786 \pm 0.078$ & $0.788 \pm 0.076$ \\
+                $\text{DNN}_{\text{pol}}$ (LL vs. TX) & $0.948 \pm 0.021$ & $0.947 \pm 0.024$ \\
+                \hline
+                \hline
+            \end{tabular}
+        \end{table}
+
+        \begin{figure}[htbp]
+            \centering
+            \subfloat[Loss ($\text{DNN}_{W^{\pm}W^{\pm}}$)]{
+                \includegraphics[width=0.45\textwidth]{loss_ew_bg.pdf}
+            }
+            \subfloat[AUC ($\text{DNN}_{W^{\pm}W^{\pm}}$)]{
+                \includegraphics[width=0.45\textwidth]{auc_ew_bg.pdf}
+            } \\
+            \subfloat[Loss ($\text{DNN}_{\text{pol}}$)]{
+                \includegraphics[width=0.45\textwidth]{loss_LL_TX.pdf}
+            }
+            \subfloat[AUC ($\text{DNN}_{\text{pol}}$)]{
+                \includegraphics[width=0.45\textwidth]{auc_LL_TX.pdf}
+            }
+            \caption{Preliminary training and validation curves (Loss and AUC) over 10 epochs for the inclusive and polarization DNN tasks.}
+            \label{fig:preliminary_training_curves}
+        \end{figure}
+
+        As anticipated for a preliminary test, the training curves indicate that the models have not yet converged. The next steps will involve generating larger training samples, increasing the number of epochs, and testing the optimized hyperparameters.
+
+    % subsection implementation_and_preliminary_validation (end)
 
 % section dense_neural_network (end)
 
