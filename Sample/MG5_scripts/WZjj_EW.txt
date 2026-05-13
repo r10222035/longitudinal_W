@@ -1,7 +1,7 @@
 generate p p > w+ z j j QCD=0, w+ > l+ vl, z > l+ l-
 add process p p > w- z j j QCD=0, w- > l- vl~, z > l+ l-
-output MG5/WZjj_EW
-launch MG5/WZjj_EW
+output MG_sample/WZjj_EW
+launch MG_sample/WZjj_EW
 
 shower=Pythia8
 detector=Delphes
@@ -26,13 +26,13 @@ set run_card deltaeta 1.5
 set run_card ptj1min 50.0
 set run_card ptj2min 25.0
 
-# ----- 輕子相空間切割 -----        
-set run_card etal 2.7
+# ----- 輕子相空間切割 -----
+set run_card etal -1
+set run_card ptl 0.0
 set run_card ptl1min 20.0
 set run_card ptl2min 20.0
 
-# ----- 缺失橫能與質量切割 -----
-set run_card misset 10.0
+set run_card misset 0.0
 
 set run_card use_syst False
 set run_card cut_decays True

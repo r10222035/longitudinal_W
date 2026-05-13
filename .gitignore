@@ -15,6 +15,7 @@ __pycache__/
 config_files/
 *.sh
 Sample/MG5/
+Sample/MG_sample
 Sample/Sherpa/
 Sample/Parquet/
 
