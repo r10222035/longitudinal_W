@@ -66,13 +66,6 @@ TASK_DEFINITIONS = {
         "name": "EW WWjj vs All Backgrounds",
         "type": "binary",
         "signal_processes": [
-            "WWjj_EW_LL_WW_cmf",
-            "WWjj_EW_LT_WW_cmf",
-            "WWjj_EW_TT_WW_cmf",
-            "WWjj_EW_LL_pp_cmf",
-            "WWjj_EW_LT_pp_cmf",
-            "WWjj_EW_TT_pp_cmf",
-            "WWjj_EW_MGH7",
             "WWjj_EW",  # Simplified name for wwzz_mix batch
         ],
         "background_processes": [
@@ -92,13 +85,10 @@ TASK_DEFINITIONS = {
         "type": "binary",
         "signal_processes": [
             "WWjj_EW_LL_WW_cmf",
-            "WWjj_EW_LL_pp_cmf",
         ],
         "background_processes": [
             "WWjj_EW_LT_WW_cmf",
             "WWjj_EW_TT_WW_cmf",
-            "WWjj_EW_LT_pp_cmf",
-            "WWjj_EW_TT_pp_cmf",
         ],
         "signal_label": 1,
         "background_label": 0,
@@ -144,6 +134,50 @@ def get_process_label_and_weight(
 
 
 # ============================================================================
+# FEATURE PRE-SCALING CONFIGURATION
+# ============================================================================
+
+# Deterministic per-feature pre-scaling (e.g. sqrt, log).
+# Dict maps feature_name -> callable(column_array) -> scaled_column_array.
+# Set to None for identity (no scaling).
+# Modify this dict to experiment with different feature transformations.
+SCALE_FN = {
+    'l1_pt': np.log,
+    'l1_eta': lambda x: x,
+    'l1_flavor_code': lambda x: x,
+    'l2_pt': np.log,
+    'l2_eta': lambda x: x,
+    'dphi_l2_l1': lambda x: x,
+    'l2_flavor_code': lambda x: x,
+    'j1_pt': np.log,
+    'j1_eta': lambda x: x,
+    'dphi_j1_l1': lambda x: x,
+    'j2_pt': np.log,
+    'j2_eta': lambda x: x,
+    'dphi_j2_l1': lambda x: x,
+    'met_et': np.log,
+    # 'met_phi': lambda x: x,
+    'dphi_met_l1': lambda x: x,
+    'zstar_l1': np.sqrt,
+    'zstar_l2': np.sqrt,
+    'mt_l1_met': np.sqrt,
+    'mt_l2_met': np.sqrt,
+    'dr_ll': lambda x: x,
+    'deta_ll': np.sqrt,
+    'm_ll': np.log,
+    'pt_ll': np.sqrt,
+    'mt_ll_met': np.sqrt,
+    'mt0_ll_met': np.sqrt,
+    'dr_jj': lambda x: x,
+    'dy_jj': lambda x: x,
+    'm_jj': np.log,
+    'dphi_jj': lambda x: x,
+    'ptprod_ll_over_jj': lambda x: np.log(x + 0.02),
+    'min_dr_lj': lambda x: x,
+}
+
+
+# ============================================================================
 # HYPERPARAMETERS
 # ============================================================================
 
@@ -164,7 +198,6 @@ class TrainingConfig:
         self.hidden_width: int = 128
         self.n_hidden_layers: int = 4
         self.dropout_rate: float = 0.3
-        self.scale_fn: str = "none"  # "none", "log_pt", or callable
         
         # Initialization (Ref. [96])
         self.init_var_scale: float = 2.952  # for truncated normal weights

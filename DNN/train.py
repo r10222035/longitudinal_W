@@ -419,11 +419,11 @@ def plot_auc_history(history: Dict, output_path: str) -> None:
     """
     fig, ax = plt.subplots(figsize=(5, 4))
 
-    ax.plot(history["train_roc_auc"], label="Train ROC-AUC", linewidth=2)
-    ax.plot(history["val_roc_auc"], label="Val ROC-AUC", linewidth=2)
+    ax.plot(history["train_roc_auc"], label="Train AUC", linewidth=2)
+    ax.plot(history["val_roc_auc"], label="Val AUC", linewidth=2)
     ax.set_xlabel("Epoch")
-    ax.set_ylabel("ROC-AUC")
-    ax.set_title("Training and Validation ROC-AUC")
+    ax.set_ylabel("AUC")
+    ax.set_title("Training and Validation AUC")
     ax.legend(frameon=False)
     ax.grid(True, alpha=0.3)
     ax.set_ylim([0.5, 1.0])

@@ -13,7 +13,7 @@ from typing import Dict
 import numpy as np
 import torch
 
-from config import TrainingConfig, TASK_DEFINITIONS
+from config import TrainingConfig, TASK_DEFINITIONS, SCALE_FN
 from data_loader import create_fold_loaders
 from model import create_model
 from train import Trainer, plot_auc_history, plot_loss_history, save_metrics_json
@@ -50,11 +50,12 @@ def train_single_fold(
     
     # Create data loaders
     print(f"Loading data for fold {i_fold}...")
+    # Use pre-scaling from config (deterministic per-feature transformations)
     train_loader, val_loader, test_loader = create_fold_loaders(
         parquet_dir=config.parquet_dir,
         i_fold=i_fold,
         task=config.task,
-        scale_fn=config.scale_fn if config.scale_fn != "none" else None,
+        scale_fn=SCALE_FN,
         batch_size=config.batch_size,
         num_workers=config.num_workers,
         pin_memory=config.pin_memory,
@@ -76,6 +77,8 @@ def train_single_fold(
         init_var_scale=config.init_var_scale,
         device=device,
     )
+
+    # Input features are pre-normalized by the data loader factory; no external normalizer needed.
     
     print(f"Model architecture:")
     print(f"  - Input features: {config.n_features}")
@@ -229,13 +232,6 @@ def main():
         default=0.3,
         help="Dropout probability",
     )
-    parser.add_argument(
-        "--scale_fn",
-        type=str,
-        default="none",
-        choices=["none", "log_pt"],
-        help="Pre-normalization scale function",
-    )
     
     # Training arguments
     parser.add_argument(
@@ -300,7 +296,6 @@ def main():
     config.hidden_width = args.hidden_width
     config.n_hidden_layers = args.n_hidden_layers
     config.dropout_rate = args.dropout_rate
-    config.scale_fn = args.scale_fn
     config.batch_size = args.batch_size
     config.learning_rate = args.learning_rate
     config.max_epochs = args.max_epochs

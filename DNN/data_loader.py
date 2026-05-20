@@ -7,17 +7,16 @@ label/weight assignment, and PyTorch Dataset/DataLoader creation.
 
 import os
 from pathlib import Path
-from typing import Tuple, Optional, List, Callable, Dict, Union
+from typing import Tuple, Optional, List, Callable, Dict
 import warnings
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
 import torch
 from torch.utils.data import Dataset, DataLoader
 
 from config import get_process_label_and_weight
-
+from config import TASK_DEFINITIONS
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -97,90 +96,54 @@ def load_and_merge_parquet(file_paths: List[str]) -> pd.DataFrame:
 # NORMALIZATION LAYER
 # ============================================================================
 
-class FeatureNormalizer:
+class PreScaler:
     """
-    Feature normalization layer that supports optional pre-scaling.
+    Deterministic per-feature pre-scaler.
 
-    Supports three `scale_fn` forms:
-      - None / "none": identity
-      - "log_pt": apply log(abs(x) + eps) to all features
-      - callable: function(X) -> X_scaled applied to whole matrix
-      - dict: mapping feature_name -> callable(column) for per-feature preproc
+    This class applies element-wise, deterministic transformations to
+    selected features (e.g. np.sqrt, np.log1p). It does NOT implement
+    any fitting or statistics-based normalization.
 
-    After pre-scaling, a `StandardScaler` is fit per-column (z-score).
+    `scale_fn` should be either None (identity) or a dict mapping
+    feature_name -> callable(column_array) -> column_array.
     """
 
     def __init__(
         self,
-        scale_fn: Optional[Union[str, Callable, Dict[str, Callable]]] = None,
+        scale_fn: Optional[Dict[str, Callable]] = None,
         feature_names: Optional[List[str]] = None,
     ):
+        if scale_fn is not None and not isinstance(scale_fn, dict):
+            raise TypeError("scale_fn must be a dict mapping feature_name->callable or None")
         self.scale_fn = scale_fn
         self.feature_names = feature_names
-        self.scaler = StandardScaler()
-        self.fitted = False
-        self.n_features = None
 
-    def _apply_scale_fn(self, X: np.ndarray) -> np.ndarray:
-        """Apply pre-scaling function if specified.
+    def apply(self, X: np.ndarray) -> np.ndarray:
+        """Apply configured per-feature pre-scaling to a 2D numpy array.
 
-        For dict `scale_fn`, requires `feature_names` to map names -> column index.
+        X is expected to be shape (n_samples, n_features). When `scale_fn`
+        is None this returns X unchanged. If a feature in `scale_fn` is not
+        present in `feature_names` it will be ignored with a warning.
         """
-        if self.scale_fn is None or self.scale_fn == "none":
+        if self.scale_fn is None:
             return X
 
-        if isinstance(self.scale_fn, dict):
-            if self.feature_names is None:
-                raise ValueError("feature_names required when using dict scale_fn")
-            Xs = X.copy()
-            for fname, fn in self.scale_fn.items():
-                if fname not in self.feature_names:
-                    warnings.warn(f"scale_fn dict contains unknown feature '{fname}'; ignoring")
-                    continue
-                idx = self.feature_names.index(fname)
-                col = Xs[:, idx]
-                if not callable(fn):
-                    raise ValueError(f"scale_fn for feature '{fname}' must be callable")
-                res = fn(col)
-                Xs[:, idx] = np.asarray(res)
-            return Xs
+        if self.feature_names is None:
+            raise ValueError("feature_names required when using scale_fn dict")
 
-        if self.scale_fn == "log_pt":
-            return np.log(np.abs(X) + 1e-6)
-
-        if callable(self.scale_fn):
-            return self.scale_fn(X)
-
-        raise ValueError(f"Unknown scale_fn: {self.scale_fn}")
-
-    def fit(self, X: np.ndarray) -> "FeatureNormalizer":
-        X_scaled = self._apply_scale_fn(X)
-        self.scaler.fit(X_scaled)
-        self.n_features = X.shape[1]
-        self.fitted = True
-        return self
-
-    def transform(self, X: np.ndarray) -> np.ndarray:
-        if not self.fitted:
-            raise RuntimeError("Normalizer not fitted. Call fit() first.")
-        X_scaled = self._apply_scale_fn(X)
-        return self.scaler.transform(X_scaled)
-
-    def fit_transform(self, X: np.ndarray) -> np.ndarray:
-        self.fit(X)
-        return self.transform(X)
-
-    @property
-    def mean(self) -> np.ndarray:
-        if not self.fitted:
-            raise RuntimeError("Normalizer not fitted.")
-        return self.scaler.mean_
-
-    @property
-    def scale(self) -> np.ndarray:
-        if not self.fitted:
-            raise RuntimeError("Normalizer not fitted.")
-        return self.scaler.scale_
+        Xs = X.copy()
+        for fname, fn in self.scale_fn.items():
+            if fname not in self.feature_names:
+                warnings.warn(f"scale_fn dict contains unknown feature '{fname}'; ignoring")
+                continue
+            idx = self.feature_names.index(fname)
+            col = Xs[:, idx]
+            if not callable(fn):
+                raise ValueError(f"scale_fn for feature '{fname}' must be callable")
+            # apply callable to the whole column
+            res = fn(col)
+            Xs[:, idx] = np.asarray(res)
+        return Xs
 
 
 # ============================================================================
@@ -197,7 +160,7 @@ class ParquetFoldDataset(Dataset):
     - Deterministic fold splitting: test=(EventNumber-i_fold)%5==0,
       val=(EventNumber-i_fold+1)%5==0, train=rest
     - Assigns label and weight based on process name and task definition
-    - Normalizes features (fitted only on training set)
+    - Applies deterministic pre-scaling to features (no fitting; e.g. sqrt/log)
     """
     
     FEATURE_COLUMNS = [
@@ -228,7 +191,7 @@ class ParquetFoldDataset(Dataset):
         i_fold: int = 0,
         fold_type: str = "train",
         task: str = "EW_vs_Background",
-        scale_fn: Optional[str] = None,
+        pre_scaler: Optional[PreScaler] = None,
     ):
         """
         Args:
@@ -247,7 +210,7 @@ class ParquetFoldDataset(Dataset):
         self.i_fold = i_fold
         self.fold_type = fold_type
         self.task = task
-        self.scale_fn = scale_fn
+        self.pre_scaler = pre_scaler
         
         # Load and merge Parquet files
         print(f"Loading Parquet files for process '{process_name}'...")
@@ -280,26 +243,15 @@ class ParquetFoldDataset(Dataset):
         
         # Extract features
         self.features = df[self.FEATURE_COLUMNS].values.astype(np.float32)
+
+        # Apply deterministic pre-scaling (e.g. sqrt/log) if requested.
+        if self.pre_scaler is not None:
+            self.features = self.pre_scaler.apply(self.features)
         
         # Assign labels and weights
         label, process_weight = get_process_label_and_weight(process_name, task)
         self.labels = np.full(len(df), label, dtype=np.int64)
         self.weights = np.full(len(df), process_weight, dtype=np.float32)
-        
-        # Initialize normalizer (will be fitted externally for train set)
-        self.normalizer = FeatureNormalizer(scale_fn=scale_fn, feature_names=self.FEATURE_COLUMNS)
-        self._normalized = False
-    
-    def fit_normalizer(self):
-        """Fit feature normalizer on this dataset."""
-        self.normalizer.fit(self.features)
-        self._normalized = True
-    
-    def apply_normalizer(self):
-        """Apply normalization to features."""
-        if not self.normalizer.fitted:
-            raise RuntimeError("Normalizer not fitted. Call fit_normalizer() on train set first.")
-        self.features = self.normalizer.transform(self.features).astype(np.float32)
     
     def __len__(self) -> int:
         return len(self.features)
@@ -328,12 +280,13 @@ def create_fold_datasets(
     parquet_dir: str,
     i_fold: int = 0,
     task: str = "EW_vs_Background",
-    scale_fn: Optional[str] = None,
+    scale_fn: Optional[Dict[str, Callable]] = None,
 ) -> Tuple[ParquetFoldDataset, ParquetFoldDataset, ParquetFoldDataset]:
     """
     Create train, validation, and test datasets for a given fold.
     
-    Important: Normalizer is fitted on train set only, then applied to all splits.
+    Important: Only deterministic pre-scaling is applied (e.g. sqrt/log). No fitting
+    or statistics-based normalization is performed by this factory.
     
     Args:
         parquet_dir: Path to parent batch directory
@@ -346,6 +299,8 @@ def create_fold_datasets(
     """
     # Get all Parquet files by process
     files_by_process = get_all_parquet_files(parquet_dir)
+    # Build a PreScaler from the provided scale_fn (deterministic element-wise)
+    pre_scaler = PreScaler(scale_fn, feature_names=ParquetFoldDataset.FEATURE_COLUMNS) if scale_fn is not None else None
     
     # Create datasets for each split (train, val, test)
     train_datasets = []
@@ -354,39 +309,36 @@ def create_fold_datasets(
     
     for process_name, file_paths in sorted(files_by_process.items()):
         print(f"\nProcessing '{process_name}'...")
+        if process_name not in TASK_DEFINITIONS[task]["signal_processes"] and \
+           process_name not in TASK_DEFINITIONS[task]["background_processes"]:
+            warnings.warn(
+                f"Process '{process_name}' not in signal or background for task '{task}'; skipping"
+            )
+            continue
         
-        # Create train, val, test datasets for this process
+        # Create train, val, test datasets for this process (apply same pre_scaler)
         train_ds = ParquetFoldDataset(
-            file_paths, process_name, i_fold, "train", task, scale_fn
+            file_paths, process_name, i_fold, "train", task, pre_scaler
         )
         val_ds = ParquetFoldDataset(
-            file_paths, process_name, i_fold, "val", task, scale_fn
+            file_paths, process_name, i_fold, "val", task, pre_scaler
         )
         test_ds = ParquetFoldDataset(
-            file_paths, process_name, i_fold, "test", task, scale_fn
+            file_paths, process_name, i_fold, "test", task, pre_scaler
         )
-        
-        # Fit normalizer on train set
-        train_ds.fit_normalizer()
-        
-        # Apply same normalizer to all splits
-        train_ds.apply_normalizer()
-        val_ds.normalizer = train_ds.normalizer
-        val_ds.apply_normalizer()
-        test_ds.normalizer = train_ds.normalizer
-        test_ds.apply_normalizer()
         
         train_datasets.append(train_ds)
         val_datasets.append(val_ds)
         test_datasets.append(test_ds)
-    
+
     # Concatenate datasets from all processes
     from torch.utils.data import ConcatDataset
-    
+
     train_concat = ConcatDataset(train_datasets)
     val_concat = ConcatDataset(val_datasets)
     test_concat = ConcatDataset(test_datasets)
     
+    # Return concatenated datasets (features already preprocessed)
     return train_concat, val_concat, test_concat
 
 
@@ -394,7 +346,7 @@ def create_fold_loaders(
     parquet_dir: str,
     i_fold: int = 0,
     task: str = "EW_vs_Background",
-    scale_fn: Optional[str] = None,
+    scale_fn: Optional[Dict[str, Callable]] = None,
     batch_size: int = 256,
     num_workers: int = 4,
     pin_memory: bool = True,
