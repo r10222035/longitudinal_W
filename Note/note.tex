@@ -1083,6 +1083,73 @@
 
     % subsection implementation_and_preliminary_validation (end)
 
+    \subsection{Feature Scaling, Normalization, and Full Training}% (fold)
+    \label{sub:feature_scaling_and_normalization}
+
+        In Section~\ref{sub:implementation_and_preliminary_validation}, the preliminary training results for the $\text{DNN}_{\text{pol}}$ task yielded an unreasonably high AUC (AUC $\approx 0.948$). Upon thorough investigation, it's a result of a subtle data leakage issue during the feature normalization process. Initially, the normalization procedure (calculating the mean and standard deviation) was applied to each physics process separately before merging them into a unified dataset. This encoded class-specific properties into the scaled variables, introducing a weak label leakage that allowed the network to artificially distinguish the processes.
+        
+        This issue has been resolved. The scaling function is now strictly fitted on the completely merged \textit{training} dataset. The derived parameters are subsequently applied to transform the training, validation, and test sets.
+
+        With the corrected data pipeline, we executed a full-scale training utilizing the complete set of input features described in Section~\ref{sub:input_features}. The dataset size was expanded to approximately 400,000 events for the inclusive $\text{DNN}_{W^{\pm}W^{\pm}}$ task, and 740,000 events for the $\text{DNN}_{\text{pol}}$ task. 
+
+        The networks were trained using the Adam optimizer with a learning rate of $10^{-3}$ and a batch size of 256. To prevent overfitting during this extended run, an early stopping mechanism was implemented. The validation loss was monitored, and the training was terminated if no improvement was observed for 20 consecutive epochs. Table~\ref{tab:dense_nn_hyperparameter} summarizes the hyperparameter settings.
+
+        \begin{table}[htbp]
+            \centering
+            \caption{Hyperparameters used in Dense-NN training.}
+            \label{tab:dense_nn_hyperparameter}
+            \begin{tabular}{l|l}
+            \hline\hline
+            Parameter                   & Value \\ \hline
+            Number of hidden layers     & 4     \\
+            Number of nodes per layer   & 128   \\
+            Dropout rate                & 0.3   \\
+            Batch size                  & 256  \\
+            Learning rate               & 0.001 \\
+            Early stopping patience     & 20    \\
+            \hline\hline
+            \end{tabular}
+        \end{table}
+
+        Figure~\ref{fig:full_training_curves} illustrates the evolution of the loss and the AUC across the training epochs. The quantitative performance of the fully trained models across the 5-fold ensemble is summarized in Table~\ref{tab:full_auc_results}. 
+
+        \begin{table}[htbp]
+            \centering
+            \caption{Final performance of the Dense-NN models across the 5 independent folds after full training with early stopping. The table presents the mean AUC scores and their standard deviations. The corrected normalization strategy yields mathematically robust and realistic separation power.}
+            \label{tab:full_auc_results}
+            \begin{tabular}{l|cc}
+                \hline
+                \hline
+                Classification Task                   & Validation AUC    & Test AUC          \\ \hline
+                $\text{DNN}_{W^{\pm}W^{\pm}}$ (EW vs. Background) & $0.806 \pm 0.001$ & $0.806 \pm 0.001$ \\
+                $\text{DNN}_{\text{pol}}$ (LL vs. TX)             & $0.839 \pm 0.001$ & $0.839 \pm 0.001$ \\
+                \hline
+                \hline
+            \end{tabular}
+        \end{table}
+
+        \begin{figure}[htbp]
+            \centering
+            \subfloat[Loss ($\text{DNN}_{W^{\pm}W^{\pm}}$)]{
+                \includegraphics[width=0.45\textwidth]{loss_ew_bg-full-fold0.pdf}
+            }
+            \subfloat[AUC ($\text{DNN}_{W^{\pm}W^{\pm}}$)]{
+                \includegraphics[width=0.45\textwidth]{auc_ew_bg-full-fold0.pdf}
+            } \\
+            \subfloat[Loss ($\text{DNN}_{\text{pol}}$)]{
+                \includegraphics[width=0.45\textwidth]{loss_LL_TX-full-fold0.pdf}
+            }
+            \subfloat[AUC ($\text{DNN}_{\text{pol}}$)]{
+                \includegraphics[width=0.45\textwidth]{auc_LL_TX-full-fold0.pdf}
+            }
+            \caption{Full training and validation curves (Loss and AUC) for the inclusive and polarization Dense-NN tasks. The early stopping mechanism successfully prevents overtraining.}
+            \label{fig:full_training_curves}
+        \end{figure}
+
+        The revised test AUC for the polarization task represents a much more realistic separation power. Furthermore, the small variance between the folds and the negligible discrepancy between the validation and test AUC scores confirm that the data splitting and normalization strategy effectively prevents over-training.
+
+    % subsection feature_scaling_and_normalization (end)
+
 % section dense_neural_network (end)
 
 \bibliographystyle{ieeetr}
