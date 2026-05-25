@@ -19,5 +19,7 @@ Sample/MG_sample
 Sample/Sherpa/
 Sample/Parquet/
 
+DNN/configs/
+
 .vscode
 

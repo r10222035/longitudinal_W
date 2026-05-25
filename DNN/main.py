@@ -13,7 +13,7 @@ from typing import Dict
 import numpy as np
 import torch
 
-from config import TrainingConfig, TASK_DEFINITIONS, SCALE_FN
+from config import DEFAULT_CONFIG_PATH, TASK_DEFINITIONS, SCALE_FN, TrainingConfig, load_training_config
 from data_loader import create_fold_loaders
 from model import create_model
 from train import Trainer, plot_auc_history, plot_loss_history, save_metrics_json
@@ -204,75 +204,31 @@ def main():
     parser = argparse.ArgumentParser(
         description="Train WW polarization state DNN with 5-fold cross-validation"
     )
+
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=str(DEFAULT_CONFIG_PATH),
+        help="Path to the YAML configuration file",
+    )
     
-    # Data arguments
     parser.add_argument(
         "--parquet_dir",
         type=str,
-        default="Sample/Parquet/batch_sr_parquet_ew_polar",
-        help="Path to Parquet batch directory",
+        default=None,
+        help="Override the Parquet batch directory",
     )
-    
-    # Model arguments
-    parser.add_argument(
-        "--hidden_width",
-        type=int,
-        default=128,
-        help="Number of neurons in hidden layers",
-    )
-    parser.add_argument(
-        "--n_hidden_layers",
-        type=int,
-        default=4,
-        help="Number of hidden layer blocks",
-    )
-    parser.add_argument(
-        "--dropout_rate",
-        type=float,
-        default=0.3,
-        help="Dropout probability",
-    )
-    
-    # Training arguments
-    parser.add_argument(
-        "--batch_size",
-        type=int,
-        default=256,
-        help="Batch size",
-    )
-    parser.add_argument(
-        "--learning_rate",
-        type=float,
-        default=0.001,
-        help="Adam learning rate",
-    )
-    parser.add_argument(
-        "--max_epochs",
-        type=int,
-        default=200,
-        help="Maximum number of training epochs",
-    )
-    parser.add_argument(
-        "--early_stopping_patience",
-        type=int,
-        default=20,
-        help="Early stopping patience (epochs)",
-    )
-    
-    # Output arguments
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="./DNN/results_ew_vs_bg",
-        help="Output directory for results",
+        default=None,
+        help="Override the output directory",
     )
-    
-    # Other arguments
     parser.add_argument(
         "--seed",
         type=int,
-        default=42,
-        help="Random seed",
+        default=None,
+        help="Override the random seed",
     )
     parser.add_argument(
         "--gpu",
@@ -289,19 +245,15 @@ def main():
     
     args = parser.parse_args()
     
-    # Create config
-    config = TrainingConfig()
-    config.parquet_dir = args.parquet_dir
-    config.task = args.task
-    config.hidden_width = args.hidden_width
-    config.n_hidden_layers = args.n_hidden_layers
-    config.dropout_rate = args.dropout_rate
-    config.batch_size = args.batch_size
-    config.learning_rate = args.learning_rate
-    config.max_epochs = args.max_epochs
-    config.early_stopping_patience = args.early_stopping_patience
-    config.output_dir = args.output_dir
-    config.seed = args.seed
+    config = load_training_config(
+        config_path=args.config,
+        overrides={
+            "parquet_dir": args.parquet_dir,
+            "output_dir": args.output_dir,
+            "seed": args.seed,
+            "task": args.task,
+        },
+    )
     
     # Determine device
     if args.gpu and torch.cuda.is_available():
