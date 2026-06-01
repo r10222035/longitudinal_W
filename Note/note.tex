@@ -1150,6 +1150,31 @@
 
     % subsection feature_scaling_and_normalization (end)
 
+    \subsection{DNN Output Score Distributions}% (fold)
+    \label{sub:dnn_output_score_distributions}
+
+        To visually assess the discrimination power of the trained networks, we evaluate the DNN output score distributions for both the inclusive and polarization-specific classification tasks. Figure~\ref{fig:dnn_score_distributions} presents the normalized predicted probability scores evaluated on the test datasets.
+
+        \begin{figure}[htbp]
+            \centering
+            \subfloat[$\text{DNN}_{W^{\pm}W^{\pm}}$ Score Distribution]{
+                \includegraphics[width=0.45\textwidth]{dnn_score_dist_ew_vs_bg_binary_unstacked.pdf}
+                \label{fig:score_ww}
+            }
+            \subfloat[$\text{DNN}_{\text{pol}}$ Score Distribution]{
+                \includegraphics[width=0.45\textwidth]{dnn_score_dist_pol_ll_vs_lttt_binary_unstacked.pdf}
+                \label{fig:score_pol}
+            }
+            \caption{Distributions of the DNN output scores for the test datasets. (a) The inclusive $\text{DNN}_{W^{\pm}W^{\pm}}$ separating the EW signal from backgrounds. (b) The $\text{DNN}_{\text{pol}}$ distinguishing the LL signal from the TX states.}
+            \label{fig:dnn_score_distributions}
+        \end{figure}
+
+        In an idealized binary classification scenario, the output scores would exhibit distinct peaks at $1.0$ for the signal and $0.0$ for the background. However, as observed in Figure~\ref{fig:dnn_score_distributions}, the distributions display a profile with noticeable overlapping regions. 
+        
+        Upon preliminary investigation, this behavior is attributed to the incorporation of physical event weights during the training process. However, we observed a discrepancy between our current score distributions and the reference plots presented in the thesis~\cite{stange2025longitudinal}.
+
+    % subsection dnn_output_score_distributions (end)
+
 % section dense_neural_network (end)
 
 
