@@ -1152,6 +1152,115 @@
 
 % section dense_neural_network (end)
 
+
+\section{Statistical framework}% (fold)
+\label{sec:statistical_framework}
+
+    This section outlines the statistical framework utilized to extract the final physics results. The ultimate goal of this analysis is to evaluate the Discovery Significance $Z_0$ and the Upper Limit constraints.
+
+    \subsection{Profile Likelihood Fit}% (fold)
+    \label{sub:profile_likelihood_fit}
+        
+        First, we need to compute the profile likelihood $\mathcal{L}$, which evaluates the goodness-of-fit between the theoretical model and the observed data across the 1D histograms. For each bin $i$, the expected number of events is defined as $m_i$, and the observed number of events is denoted as $n_i$.
+
+        The expectation $m_i$ consists of the signal and background contributions, parameterized by the signal strength $\mu$, and is modified by systematic uncertainties. These uncertainties are modeled using nuisance parameters (NPs), denoted as $\boldsymbol{\theta}$ for systematics, and $\boldsymbol{\gamma}$ for Monte Carlo (MC) statistical uncertainties:
+        \begin{equation}
+            m_i( \mu, \boldsymbol{\theta}, \boldsymbol{\gamma} ) = \gamma_i \left( \mu \, s_i(\boldsymbol{\theta}) + b_i(\boldsymbol{\theta}) \right),
+        \end{equation}
+        where $s_i$ and $b_i$ are the nominal number of predicted signal and background events in bin $i$, respectively.
+
+        The complete likelihood function $\mathcal{L}$ is constructed as the product of Poisson probabilities for all bins, multiplied by constraint terms for the nuisance parameters:
+        \begin{equation}
+            \mathcal{L}(\mu, \boldsymbol{\theta}, \boldsymbol{\gamma}) = \prod_{i=1}^{N_{\text{bins}}} \text{Pois}\left( n_i | m_i \right) \mathrm{Pois}\left(\frac{1}{(\delta_i^{\text{stat}})^2} \Bigg| \frac{\gamma_i}{(\delta_i^{\text{stat}})^2} \right) \prod_{j=1}^{N_{\text{nuis}}} f_{\text{Gauss}}(\theta_j).
+        \end{equation}
+        Here, the Poisson probability is defined as $\mathrm{Pois}(n_i | m_i) = \frac{m_i^{n_i}}{n_i!} \euler^{-m_i}$. The auxiliary functions $f_{\text{Gauss}}(\theta_j)$ are standard normal distributions constraining the systematic NPs $\boldsymbol{\theta}$.
+
+        \subsubsection{Test Statistic and Profile Likelihood Ratio}
+        To test specific hypotheses, the profile likelihood ratio $\lambda(\mu)$ is defined as:
+        \begin{equation}
+            \lambda(\mu) = \frac{\mathcal{L}(\mu, \hat{\hat{\boldsymbol{\theta}}}, \hat{\hat{\boldsymbol{\gamma}}})}{\mathcal{L}(\hat{\mu}, \hat{\boldsymbol{\theta}}, \hat{\boldsymbol{\gamma}})}.
+        \end{equation}
+        In the denominator, $\hat{\mu}$, $\hat{\boldsymbol{\theta}}$, and $\hat{\boldsymbol{\gamma}}$ are the unconditional maximum likelihood estimators that globally maximize $\mathcal{L}$ across the entire parameter space. In the numerator, $\hat{\hat{\boldsymbol{\theta}}}$ and $\hat{\hat{\boldsymbol{\gamma}}}$ are the conditional maximum likelihood estimators that maximize $\mathcal{L}$ for a specified, fixed value of $\mu$.
+
+        Based on $\lambda(\mu)$, the test statistic $q_\mu$ is constructed:
+        \begin{equation}
+            q_\mu = -2 \ln \lambda(\mu).
+        \end{equation}
+
+        \subsubsection{Discovery Significance and Upper Limits}
+        The presence of a new signal is tested by rejecting the background-only hypothesis ($\mu = 0$). The corresponding test statistic is $q_0 = -2 \ln \lambda(0)$. For a sufficiently large dataset, the discovery significance $Z_0$ can be approximated as:
+        \begin{equation}
+            Z_0 \approx \sqrt{q_0}.
+        \end{equation}
+
+        In the absence of a significant excess, the analysis sets a 95\% Confidence Level (CL) upper limit on the signal strength. This is derived using the $\text{CL}_s$ method, which also utilizes test statistic $q_\mu$.
+
+    % subsection profile_likelihood_fit (end)
+
+    \subsection{The histogram binning}% (fold)
+    \label{sub:the_histogram_binning}
+
+        In this analysis, the outputs of the Dense-NNs serve as the direct inputs for the profile likelihood fit. The outputs can be interpreted as classiﬁcation tuple $(\text{DNN}_{\text{pol}}, \text{DNN}_{W^\pm W^\pm})$ on a two-dimensional score plane:
+        \begin{itemize}
+            \item Y-axis ($\text{DNN}_{W^\pm W^\pm}$): The inclusive network score, which separates the pure EW $W^\pm W^\pm jj$ signal from reducible and irreducible backgrounds (e.g., $WZ$, QCD $WW$).
+            \item X-axis ($\text{DNN}_{\text{pol}}$): The polarization-specific network score, which evaluates the EW events to distinguish the targeted polarization state (e.g., LL signal) from the other polarization states (e.g., TX backgrounds).
+        \end{itemize}
+
+        This study uses a rebinning algorithm to maximize the significance and reduce the computation time. This procedure slices the 2D plane into a sequence of 1D bins, requiring a delicate balance between preserving the Dense-NN output shape information and avoiding statistical fluctuations. The algorithm is listed below:
+        \begin{itemize}
+            \item \textbf{Region Slicing:} The Y-axis ($\text{DNN}_{W^\pm W^\pm}$) is first divided into discrete purity intervals. Each interval is then evaluated along the X-axis ($\text{DNN}_{\text{pol}}$) and flattened into consecutive 1D strips.
+            \item \textbf{Statistical Stability:} To prevent statistical uncertainties, the bin edges of each histogram are merged until there are at least ten events originating from background or transverse polarized contributions in each bin.
+            \item \textbf{Significance Maximization:} Adjacent bins are merged if keeping them separate would not improve the significance.
+        \end{itemize}
+
+        Table~\ref{tab:optimized_splits} is the final binning from the thesis. 
+        \begin{table}[htbp]
+            \centering
+            \caption{The optimized splits in the $\text{DNN}_{W^{\pm}W^{\pm}}$ classification and the corresponding bin edges in polarization classification.}
+            \label{tab:optimized_splits}
+            \begin{tabular}{|l|c|c|}
+            \hline
+            Polarization & Split in $\text{DNN}_{W^{\pm}W^{\pm}}$ & Binning in polarization classification \\ \hline
+            LL in $WW$-cmf & $[0.0, 0.2, 0.6, 1.0]$ & \begin{tabular}[c]{@{}c@{}}$[0.0, 0.4, 0.7, 1.0]$\\ $[0.0, 0.5, 0.8, 1.0]$\\ $[0.0, 0.4, 0.6, 0.7, 0.8, 1.0]$\end{tabular} \\ \hline
+            LX in $WW$-cmf & $[0.0, 0.3, 0.7, 1.0]$ & \begin{tabular}[c]{@{}c@{}}$[0.0, 0.3, 0.7, 1.0]$\\ $[0.0, 0.3, 0.5, 0.6, 0.7, 0.8, 1.0]$\\ $[0.0, 0.15, 0.35, 0.45, 0.55, 0.7, 1.0]$\end{tabular} \\ \hline
+            LL in pp-cmf   & $[0.0, 0.15, 0.5, 1.0]$ & \begin{tabular}[c]{@{}c@{}}$[0.0, 0.55, 0.8, 1.0]$\\ $[0.0, 0.7, 0.8, 1.0]$\\ $[0.0, 0.4, 0.6, 0.7, 0.8, 1.0]$\end{tabular} \\ \hline
+            LX in pp-cmf   & $[0.0, 0.25, 0.6, 1.0]$ & \begin{tabular}[c]{@{}c@{}}$[0.0, 0.45, 0.6, 1.0]$\\ $[0.0, 0.25, 0.4, 0.55, 0.75, 1.0]$\\ $[0.0, 0.15, 0.3, 0.4, 0.5, 0.6, 0.7, 1.0]$\end{tabular} \\ \hline
+            \end{tabular}
+        \end{table}
+
+    % subsection the_histogram_binning (end)
+
+    \subsection{Expected Results}% (fold)
+    \label{sub:expected_results}
+
+        The fit model must be validated using an expected dataset. This is achieved by utilizing an \textbf{Asimov dataset}, which is a representative pseudo-dataset where the ``observed'' event counts in each bin are set exactly equal to the nominal theoretical predictions (signal plus background), absent any statistical fluctuations.
+
+        Fitting the Asimov dataset serves a critical purpose: it determines the theoretical sensitivity of the analysis based on the current detector acceptance, background estimations, and the discrimination power of the DNN. This yields a baseline expected discovery significance ($Z_0$) for the targeted polarization states.
+
+        Table~\ref{tab:expected_significance} summarizes the expected significances for the LL and LX signal states as reported in the reference thesis~\cite{stange2025longitudinal}. 
+
+        \begin{table}[htbp]
+            \centering
+            \caption{Expected discovery significances for the LL and LX polarization states, evaluated using the Asimov dataset. The comparison highlights the impact of defining the polarization vectors in the $WW$ center-of-mass frame versus the partonic frame.}
+            \label{tab:expected_significance}
+            \begin{tabular}{lcc}
+                \hline
+                \hline
+                Reference Frame & LL Significance ($Z_0$) & LX Significance ($Z_0$) \\
+                \hline
+                WW-cmf & $1.512\,\sigma$ & $4.557\,\sigma$ \\
+                pp-cmf & $0.937\,\sigma$ & $3.975\,\sigma$ \\
+                \hline
+                \hline
+            \end{tabular}
+        \end{table}
+
+        As shown in the table, defining the polarization in the $WW$ center-of-mass frame yields notably higher expected sensitivities for both the LL and LX states compared to the initial-state partonic frame.
+
+    % subsection expected_results (end)
+
+% section statistical_framework (end)
+
 \bibliographystyle{ieeetr}
 \bibliography{reference}
 
