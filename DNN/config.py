@@ -38,6 +38,12 @@ PROCESS_WEIGHTS = {
     "charge_flip": 10.10,
 }
 
+WEIGHT_STRATEGIES = {
+    "process",
+    "inverse_event_count",
+    "hybrid",
+}
+
 # ============================================================================
 # PROCESS ALIASES
 # ============================================================================
@@ -116,6 +122,7 @@ def get_process_label_and_weight(
     Raises:
         ValueError: If process_name not found in PROCESS_WEIGHTS or task not found
     """
+    orig_name = process_name
     process_name = resolve_process_name(process_name)
 
     if task not in TASK_DEFINITIONS:
@@ -127,16 +134,51 @@ def get_process_label_and_weight(
     task_def = TASK_DEFINITIONS[task]
     weight = PROCESS_WEIGHTS[process_name]
     
-    if process_name in task_def["signal_processes"]:
+    if orig_name in task_def["signal_processes"] or process_name in task_def["signal_processes"]:
         label = task_def["signal_label"]
-    elif process_name in task_def["background_processes"]:
+    elif orig_name in task_def["background_processes"] or process_name in task_def["background_processes"]:
         label = task_def["background_label"]
     else:
         raise ValueError(
-            f"Process '{process_name}' not in signal or background for task '{task}'"
+            f"Process '{process_name}' (original: '{orig_name}') not in signal or background for task '{task}'"
         )
     
     return label, weight
+
+
+def compute_sample_weight(
+    process_weight: float,
+    n_events: int,
+    strategy: str = "process",
+) -> float:
+    """
+    Compute the final sample weight for a process under a given strategy.
+
+    Args:
+        process_weight: Physics cross-section weight for the process
+        n_events: Number of events in the current split for that process
+        strategy: One of 'process', 'inverse_event_count', or 'hybrid'
+
+    Returns:
+        Final per-event sample weight
+    """
+    if strategy not in WEIGHT_STRATEGIES:
+        raise ValueError(
+            f"Unknown weight strategy '{strategy}'. Available: {sorted(WEIGHT_STRATEGIES)}"
+        )
+
+    if strategy == "process":
+        return float(process_weight)
+
+    if n_events <= 0:
+        return 0.0
+
+    inverse_event_count = 1.0 / float(n_events)
+
+    if strategy == "inverse_event_count":
+        return inverse_event_count
+
+    return float(process_weight) * inverse_event_count
 
 
 # ============================================================================
@@ -183,56 +225,26 @@ SCALE_FN = {
 }
 
 
-DEFAULT_CONFIG_PATH = Path(__file__).with_name("default_config.yaml")
-
-
-_FALLBACK_DEFAULT_CONFIG = {
-    "batch_size": 256,
-    "num_workers": 4,
-    "pin_memory": True,
-    "task": "EW_vs_Background",
-    "n_features": 32,
-    "hidden_width": 128,
-    "n_hidden_layers": 4,
-    "dropout_rate": 0.3,
-    "init_var_scale": 2.952,
-    "init_bias_std": 0.2,
-    "learning_rate": 0.001,
-    "adam_eps": 1e-8,
-    "max_epochs": 200,
-    "early_stopping_patience": 10,
-    "early_stopping_threshold": 0,
-    "parquet_dir": "Sample/Parquet/batch_sr_parquet_ew_polar",
-    "output_dir": "./DNN/results_ew_vs_bg",
-    "seed": 42,
-}
+DEFAULT_CONFIG_PATH = Path(__file__).with_name("configs") / "default_config.yaml"
 
 
 def _load_yaml_mapping(config_path: Path) -> Dict[str, Any]:
-    """Load and validate a YAML mapping from disk."""
+    """Load a YAML mapping from disk."""
     with config_path.open("r", encoding="utf-8") as handle:
         loaded = yaml.safe_load(handle) or {}
 
     if not isinstance(loaded, dict):
         raise ValueError(f"Config file must contain a mapping: {config_path}")
 
-    unknown_keys = set(loaded) - set(_FALLBACK_DEFAULT_CONFIG)
-    if unknown_keys:
-        raise ValueError(
-            f"Unknown config keys in {config_path}: {sorted(unknown_keys)}"
-        )
-
-    merged = dict(_FALLBACK_DEFAULT_CONFIG)
-    merged.update(loaded)
-    return merged
+    return loaded
 
 
 def load_default_config_data() -> Dict[str, Any]:
     """Load the canonical default config data from YAML when available."""
     if DEFAULT_CONFIG_PATH.exists():
         return _load_yaml_mapping(DEFAULT_CONFIG_PATH)
-
-    return dict(_FALLBACK_DEFAULT_CONFIG)
+    else:
+        raise FileNotFoundError(f"Default config not found at {DEFAULT_CONFIG_PATH}")
 
 
 def load_training_config(
@@ -265,8 +277,18 @@ class TrainingConfig:
     def __init__(self, **kwargs: Any):
         defaults = load_default_config_data()
 
+        weight_strategy = kwargs.get(
+            "weight_strategy", defaults.get("weight_strategy", "process")
+        )
+        if weight_strategy not in WEIGHT_STRATEGIES:
+            raise ValueError(
+                f"Unknown weight_strategy '{weight_strategy}'. Available: {sorted(WEIGHT_STRATEGIES)}"
+            )
+
         for key, value in defaults.items():
             setattr(self, key, kwargs.get(key, value))
+
+        self.weight_strategy = weight_strategy
 
         unknown_keys = set(kwargs) - set(defaults)
         if unknown_keys:

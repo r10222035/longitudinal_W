@@ -13,7 +13,9 @@ from typing import Dict
 import numpy as np
 import torch
 
-from config import DEFAULT_CONFIG_PATH, TASK_DEFINITIONS, SCALE_FN, TrainingConfig, load_training_config
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from config import DEFAULT_CONFIG_PATH, TASK_DEFINITIONS, SCALE_FN, TrainingConfig, load_training_config, WEIGHT_STRATEGIES
 from data_loader import create_fold_loaders
 from model import create_model
 from train import Trainer, plot_auc_history, plot_loss_history, save_metrics_json
@@ -55,6 +57,7 @@ def train_single_fold(
         parquet_dir=config.parquet_dir,
         i_fold=i_fold,
         task=config.task,
+        weight_strategy=config.weight_strategy,
         scale_fn=SCALE_FN,
         batch_size=config.batch_size,
         num_workers=config.num_workers,
@@ -136,6 +139,7 @@ def run_cross_validation(config: TrainingConfig, device: torch.device) -> None:
     print("WW POLARIZATION STATE DNN - 5-FOLD CROSS-VALIDATION")
     print(f"{'='*70}")
     print(f"Task: {TASK_DEFINITIONS[config.task]['name']}")
+    print(f"Weight strategy: {config.weight_strategy}")
     print(f"Device: {device}")
     print(f"Parquet dir: {config.parquet_dir}")
     print(f"Output dir: {config.output_dir}\n")
@@ -242,6 +246,14 @@ def main():
         choices=list(TASK_DEFINITIONS.keys()),
         help="Training task (classification task to perform)",
     )
+
+    parser.add_argument(
+        "--weight_strategy",
+        type=str,
+        default="process",
+        choices=sorted(WEIGHT_STRATEGIES),
+        help="Sample-weight strategy to use",
+    )
     
     args = parser.parse_args()
     
@@ -252,8 +264,11 @@ def main():
             "output_dir": args.output_dir,
             "seed": args.seed,
             "task": args.task,
+            "weight_strategy": args.weight_strategy,
         },
     )
+
+    config.output_dir = str(Path(config.output_dir) / config.weight_strategy)
     
     # Determine device
     if args.gpu and torch.cuda.is_available():

@@ -15,7 +15,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from config import get_process_label_and_weight
+from config import get_process_label_and_weight, compute_sample_weight
 from config import TASK_DEFINITIONS
 
 # ============================================================================
@@ -191,6 +191,7 @@ class ParquetFoldDataset(Dataset):
         i_fold: int = 0,
         fold_type: str = "train",
         task: str = "EW_vs_Background",
+        weight_strategy: str = "process",
         pre_scaler: Optional[PreScaler] = None,
     ):
         """
@@ -210,6 +211,7 @@ class ParquetFoldDataset(Dataset):
         self.i_fold = i_fold
         self.fold_type = fold_type
         self.task = task
+        self.weight_strategy = weight_strategy
         self.pre_scaler = pre_scaler
         
         # Load and merge Parquet files
@@ -251,7 +253,12 @@ class ParquetFoldDataset(Dataset):
         # Assign labels and weights
         label, process_weight = get_process_label_and_weight(process_name, task)
         self.labels = np.full(len(df), label, dtype=np.int64)
-        self.weights = np.full(len(df), process_weight, dtype=np.float32)
+        sample_weight = compute_sample_weight(
+            process_weight=process_weight,
+            n_events=len(df),
+            strategy=weight_strategy,
+        )
+        self.weights = np.full(len(df), sample_weight, dtype=np.float32)
     
     def __len__(self) -> int:
         return len(self.features)
@@ -280,6 +287,7 @@ def create_fold_datasets(
     parquet_dir: str,
     i_fold: int = 0,
     task: str = "EW_vs_Background",
+    weight_strategy: str = "process",
     scale_fn: Optional[Dict[str, Callable]] = None,
 ) -> Tuple[ParquetFoldDataset, ParquetFoldDataset, ParquetFoldDataset]:
     """
@@ -318,13 +326,13 @@ def create_fold_datasets(
         
         # Create train, val, test datasets for this process (apply same pre_scaler)
         train_ds = ParquetFoldDataset(
-            file_paths, process_name, i_fold, "train", task, pre_scaler
+            file_paths, process_name, i_fold, "train", task, weight_strategy, pre_scaler
         )
         val_ds = ParquetFoldDataset(
-            file_paths, process_name, i_fold, "val", task, pre_scaler
+            file_paths, process_name, i_fold, "val", task, weight_strategy, pre_scaler
         )
         test_ds = ParquetFoldDataset(
-            file_paths, process_name, i_fold, "test", task, pre_scaler
+            file_paths, process_name, i_fold, "test", task, weight_strategy, pre_scaler
         )
         
         train_datasets.append(train_ds)
@@ -346,6 +354,7 @@ def create_fold_loaders(
     parquet_dir: str,
     i_fold: int = 0,
     task: str = "EW_vs_Background",
+    weight_strategy: str = "process",
     scale_fn: Optional[Dict[str, Callable]] = None,
     batch_size: int = 256,
     num_workers: int = 4,
@@ -367,7 +376,7 @@ def create_fold_loaders(
         (train_loader, val_loader, test_loader)
     """
     train_ds, val_ds, test_ds = create_fold_datasets(
-        parquet_dir, i_fold, task, scale_fn
+        parquet_dir, i_fold, task, weight_strategy, scale_fn
     )
     
     train_loader = DataLoader(
