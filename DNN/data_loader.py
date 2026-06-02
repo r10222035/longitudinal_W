@@ -15,7 +15,11 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from config import get_process_label_and_weight, compute_sample_weight
+from config import (
+    get_process_label_and_weight,
+    compute_sample_weight,
+    balance_signal_background_weights,
+)
 from config import TASK_DEFINITIONS
 
 # ============================================================================
@@ -259,6 +263,9 @@ class ParquetFoldDataset(Dataset):
             strategy=weight_strategy,
         )
         self.weights = np.full(len(df), sample_weight, dtype=np.float32)
+
+        # Rebalance binary tasks so signal and background contribute equally in total.
+        self.weights = balance_signal_background_weights(self.labels, self.weights)
     
     def __len__(self) -> int:
         return len(self.features)

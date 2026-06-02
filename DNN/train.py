@@ -53,9 +53,10 @@ def compute_weighted_loss(
     
     # Apply physics weights
     weighted_loss = unreduced_loss * weights
-    
-    # Average over batch
-    loss = weighted_loss.mean()
+
+    # Weighted mean keeps the optimization scale stable while preserving
+    # the intended relative weighting between samples.
+    loss = weighted_loss.sum() / torch.clamp(weights.sum(), min=1e-12)
     
     return loss
 

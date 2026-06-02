@@ -181,6 +181,41 @@ def compute_sample_weight(
     return float(process_weight) * inverse_event_count
 
 
+def balance_signal_background_weights(
+    labels: np.ndarray,
+    weights: np.ndarray,
+    signal_label: int = 1,
+    background_label: int = 0,
+) -> np.ndarray:
+    """
+    Rebalance binary-class sample weights so signal and background have equal total weight.
+
+    The combined total weight is preserved, while the signal and background totals are
+    both set to half of the original combined total. Relative weights within each class
+    are preserved.
+    """
+    labels = np.asarray(labels)
+    balanced_weights = np.asarray(weights, dtype=np.float64).copy()
+
+    signal_mask = labels == signal_label
+    background_mask = labels == background_label
+
+    if not signal_mask.any() or not background_mask.any():
+        return balanced_weights.astype(np.float32)
+
+    signal_total = float(balanced_weights[signal_mask].sum())
+    background_total = float(balanced_weights[background_mask].sum())
+
+    if signal_total <= 0.0 or background_total <= 0.0:
+        return balanced_weights.astype(np.float32)
+
+    target_total = 0.5 * (signal_total + background_total)
+    balanced_weights[signal_mask] *= target_total / signal_total
+    balanced_weights[background_mask] *= target_total / background_total
+
+    return balanced_weights.astype(np.float32)
+
+
 # ============================================================================
 # FEATURE PRE-SCALING CONFIGURATION
 # ============================================================================
@@ -260,8 +295,6 @@ def load_training_config(
     if overrides:
         for key, value in overrides.items():
             if value is not None:
-                if key not in _FALLBACK_DEFAULT_CONFIG:
-                    raise ValueError(f"Unknown override key: {key}")
                 config_data[key] = value
 
     return TrainingConfig(**config_data)

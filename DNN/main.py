@@ -239,13 +239,6 @@ def main():
         action="store_true",
         help="Use GPU if available",
     )
-    parser.add_argument(
-        "--task",
-        type=str,
-        default="EW_vs_Background",
-        choices=list(TASK_DEFINITIONS.keys()),
-        help="Training task (classification task to perform)",
-    )
 
     parser.add_argument(
         "--weight_strategy",
@@ -263,7 +256,6 @@ def main():
             "parquet_dir": args.parquet_dir,
             "output_dir": args.output_dir,
             "seed": args.seed,
-            "task": args.task,
             "weight_strategy": args.weight_strategy,
         },
     )
