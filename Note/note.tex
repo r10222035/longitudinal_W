@@ -140,7 +140,7 @@
 \section{ATLAS latest study}% (fold)
 \label{sec:atlas_latest_study}
 
-    The couplings of longitudinally polarized $W$ and $Z$ bosons to the Higgs boson prevent the divergence of tree-level Vector Boson Scattering (VBS) amplitudes at high energies when the two outgoing bosons are longitudinally polarized, restoring the unitarity at the TeV scale. Thus, the VBS processes with longitudinal vector bosons provide a sensitive test of the electroweak (EW) symmetry-breaking mechanism.
+    The couplings of longitudinally polarized $W$ and $Z$ bosons to the Higgs boson prevent the divergence of tree-level Vector Boson Scattering (VBS) amplitudes at high energies when the two outgoing bosons are longitudinally polarized, restoring unitarity at the TeV scale. Thus, the VBS processes with longitudinal vector bosons provide a sensitive test of the electroweak (EW) symmetry-breaking mechanism.
 
     The most recent ATLAS study is detailed in Ref.~\cite{ATLAS:2025wuw}. This study focuses on VBS. Specifically, it investigates the EW production of same-sign $W$ boson pairs (EW $W^{\pm} W^{\pm} jj$), a process to which VBS provides a significant contribution. The key concepts and event selection criteria of this work are summarized below.
 
@@ -595,7 +595,7 @@
             \end{tabular}
         \end{table}
 
-        The thesis also mentioned the overlapping removal strategies for the jet and leptons objects. However, it is not clear if they applied the overlapping removal and what kind of strategy they considered.
+        The thesis also mentioned the overlapping removal strategies for the jet and lepton objects. However, it is not clear if they applied the overlapping removal and what kind of strategy they considered.
 
     % subsection particle_level_selection (end)
 
@@ -1086,7 +1086,7 @@
     \subsection{Feature Scaling, Normalization, and Full Training}% (fold)
     \label{sub:feature_scaling_and_normalization}
 
-        In Section~\ref{sub:implementation_and_preliminary_validation}, the preliminary training results for the $\text{DNN}_{\text{pol}}$ task yielded an unreasonably high AUC (AUC $\approx 0.948$). Upon thorough investigation, it's a result of a subtle data leakage issue during the feature normalization process. Initially, the normalization procedure (calculating the mean and standard deviation) was applied to each physics process separately before merging them into a unified dataset. This encoded class-specific properties into the scaled variables, introducing a weak label leakage that allowed the network to artificially distinguish the processes.
+        In Section~\ref{sub:implementation_and_preliminary_validation}, the preliminary training results for the $\text{DNN}_{\text{pol}}$ task yielded an unreasonably high AUC (AUC $\approx 0.948$). Upon thorough investigation, it was a result of a subtle data leakage issue during the feature normalization process. Initially, the normalization procedure (calculating the mean and standard deviation) was applied to each physics process separately before merging them into a unified dataset. This encoded class-specific properties into the scaled variables, introducing a weak label leakage that allowed the network to artificially distinguish the processes.
         
         This issue has been resolved. The scaling function is now strictly fitted on the completely merged \textit{training} dataset. The derived parameters are subsequently applied to transform the training, validation, and test sets.
 
@@ -1146,7 +1146,7 @@
             \label{fig:full_training_curves}
         \end{figure}
 
-        The revised test AUC for the polarization task represents a much more realistic separation power. Furthermore, the small variance between the folds and the negligible discrepancy between the validation and test AUC scores confirm that the data splitting and normalization strategy effectively prevents over-training.
+        The revised test AUC for the polarization task represents a much more realistic separation power. Furthermore, the small variance between the folds and the negligible discrepancy between the validation and test AUC scores confirm that the data splitting and normalization strategy effectively prevents overtraining.
 
     % subsection feature_scaling_and_normalization (end)
 
@@ -1174,6 +1174,36 @@
         Upon preliminary investigation, this behavior is attributed to the incorporation of physical event weights during the training process. However, we observed a discrepancy between our current score distributions and the reference plots presented in the thesis~\cite{stange2025longitudinal}.
 
     % subsection dnn_output_score_distributions (end)
+
+    \subsection{Training Weight Strategy}% (fold)
+    \label{sub:weighting_strategy}
+
+        To properly account for the different production cross-sections and the imbalanced MC dataset sizes, we evaluated three distinct sample weighting strategies for the NN training loss function:
+        \begin{enumerate}
+            \item \textbf{Physical Yield Weighting:} Each event is assigned a weight corresponding to its expected physical yield in the SR.
+            \item \textbf{Inverse Generation Weighting:} Each event is weighted simply by the inverse of the total number of generated events for its respective process ($w \propto 1/N_{\text{gen}}$).
+            \item \textbf{Hybrid Weighting:} A combination of the physical yield and inverse event count methods.
+        \end{enumerate}
+
+        The pure ``Physical Yield'' strategy reflects the true kinematic composition and imbalance among all physical processes, closely mimicking the exact conditions of real collision data. However, if used alone, it fails to account for the imbalance within the generated MC samples themselves. This is why the ``Inverse Generation'' and ``Hybrid'' approaches were introduced and evaluated.
+
+        Furthermore, a crucial \textbf{class-balancing} step is enforced. The event weights are globally normalized such that the sum of the weights in the signal category exactly equals the sum of the weights in the background category ($\sum w_{\text{sig}} = \sum w_{\text{bkg}}$). This global scaling preserves the relative physical ratios of the internal sub-processes while preventing the neural network from trivially predicting the majority class to minimize the loss.
+
+        The Hybrid weighting strategy combined with global class balancing provides the most reasonable learning strategy. Thus, we presented the training results of this strategy. Figure~\ref{fig:dnn_score_distributions_signal_background_balanced_weight} illustrates the resulting Dense-NN output evaluated on the test datasets utilizing this optimized weighting scheme. The distributions satisfy our expectation that they exhibit peaks are near to 1 for signal and 0 for the background.
+
+        \begin{figure}[htbp]
+            \centering
+            \subfloat[$\text{DNN}_{W^{\pm}W^{\pm}}$ Score Distribution]{
+                \includegraphics[width=0.45\textwidth]{dnn_score_dist_ew_vs_bg_binary_unstacked_hybrid.pdf}
+            }
+            \subfloat[$\text{DNN}_{\text{pol}}$ Score Distribution]{
+                \includegraphics[width=0.45\textwidth]{dnn_score_dist_pol_ll_vs_lttt_binary_unstacked_hybrid.pdf}
+            }
+            \caption{Distributions of the DNN output scores for the test datasets using the optimized hybrid weighting strategy. (a) The inclusive $\text{DNN}_{W^{\pm}W^{\pm}}$ separating the EW signal from backgrounds. (b) The $\text{DNN}_{\text{pol}}$ distinguishing the LL signal from the TX states.}
+            \label{fig:dnn_score_distributions_signal_background_balanced_weight}
+        \end{figure}
+
+    % subsection weighting_strategy (end)
 
 % section dense_neural_network (end)
 
@@ -1218,7 +1248,7 @@
             Z_0 \approx \sqrt{q_0}.
         \end{equation}
 
-        In the absence of a significant excess, the analysis sets a 95\% Confidence Level (CL) upper limit on the signal strength. This is derived using the $\text{CL}_s$ method, which also utilizes test statistic $q_\mu$.
+        In the absence of a significant excess, the analysis sets a 95\% Confidence Level (CL) upper limit on the signal strength. This is derived using the $\text{CL}_s$ method, which also utilizes the test statistic $q_\mu$.
 
     % subsection profile_likelihood_fit (end)
 
