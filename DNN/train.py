@@ -186,8 +186,10 @@ class Trainer:
         all_logits = []
         all_labels = []
         all_weights = []
-        total_loss = 0.0
-        n_batches = 0
+        total_weighted_loss = 0.0
+        total_weight_sum = 0.0
+        
+        bce_loss = nn.BCEWithLogitsLoss(reduction='none')
         
         for batch_features, batch_labels, batch_weights, batch_event_ids in self.train_loader:
             # Move to device
@@ -206,9 +208,13 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             
-            # Accumulate metrics
-            total_loss += loss.item()
-            n_batches += 1
+            # Accumulate global weighted loss and weight sum for accurate tracking
+            logits_sq = logits.squeeze(-1)
+            labels_f = batch_labels.float()
+            weights_f = batch_weights.float()
+            unreduced_loss = bce_loss(logits_sq, labels_f)
+            total_weighted_loss += (unreduced_loss * weights_f).sum().item()
+            total_weight_sum += weights_f.sum().item()
             
             # Store for AUC computation
             all_logits.append(logits.detach().cpu().numpy().squeeze())
@@ -216,7 +222,7 @@ class Trainer:
             all_weights.append(batch_weights.cpu().numpy())
         
         # Average loss
-        avg_loss = total_loss / n_batches
+        avg_loss = total_weighted_loss / max(total_weight_sum, 1e-12)
         
         # Compute ROC-AUC
         all_logits = np.concatenate(all_logits)
@@ -240,8 +246,10 @@ class Trainer:
         all_logits = []
         all_labels = []
         all_weights = []
-        total_loss = 0.0
-        n_batches = 0
+        total_weighted_loss = 0.0
+        total_weight_sum = 0.0
+        
+        bce_loss = nn.BCEWithLogitsLoss(reduction='none')
         
         for batch_features, batch_labels, batch_weights, batch_event_ids in self.val_loader:
             # Move to device
@@ -252,10 +260,13 @@ class Trainer:
             # Forward pass
             logits = self.model(batch_features)
             
-            # Compute loss
-            loss = compute_weighted_loss(logits, batch_labels, batch_weights)
-            total_loss += loss.item()
-            n_batches += 1
+            # Accumulate global weighted loss and weight sum for accurate tracking
+            logits_sq = logits.squeeze(-1)
+            labels_f = batch_labels.float()
+            weights_f = batch_weights.float()
+            unreduced_loss = bce_loss(logits_sq, labels_f)
+            total_weighted_loss += (unreduced_loss * weights_f).sum().item()
+            total_weight_sum += weights_f.sum().item()
             
             # Store for AUC computation
             all_logits.append(logits.cpu().numpy().squeeze())
@@ -263,7 +274,7 @@ class Trainer:
             all_weights.append(batch_weights.cpu().numpy())
         
         # Average loss
-        avg_loss = total_loss / n_batches
+        avg_loss = total_weighted_loss / max(total_weight_sum, 1e-12)
         
         # Compute ROC-AUC
         all_logits = np.concatenate(all_logits)
