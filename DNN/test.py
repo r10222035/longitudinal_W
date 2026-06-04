@@ -56,7 +56,7 @@ def test_config():
     
     # Test process-to-label mapping
     print(f"\nProcess-to-label mapping (EW_vs_Background):")
-    for process in ["WWjj_EW_LL_WW_cmf", "WWjj_QCD", "WZjj_EW"]:
+    for process in ["WWjj_EW", "WWjj_QCD", "WZjj_EW"]:
         label, weight = get_process_label_and_weight(process, "EW_vs_Background")
         print(f"  - {process}: label={label}, weight={weight}")
 

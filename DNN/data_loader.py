@@ -264,8 +264,9 @@ class ParquetFoldDataset(Dataset):
         )
         self.weights = np.full(len(df), sample_weight, dtype=np.float32)
 
-        # Rebalance binary tasks so signal and background contribute equally in total.
-        self.weights = balance_signal_background_weights(self.labels, self.weights)
+        # Note: Global balancing of signal vs background weights is performed
+        # after concatenating datasets in create_fold_datasets.
+
     
     def __len__(self) -> int:
         return len(self.features)
@@ -296,6 +297,7 @@ def create_fold_datasets(
     task: str = "EW_vs_Background",
     weight_strategy: str = "process",
     scale_fn: Optional[Dict[str, Callable]] = None,
+    balance_weights: bool = True,
 ) -> Tuple[ParquetFoldDataset, ParquetFoldDataset, ParquetFoldDataset]:
     """
     Create train, validation, and test datasets for a given fold.
@@ -308,6 +310,7 @@ def create_fold_datasets(
         i_fold: Fold index (0-4)
         task: Task definition
         scale_fn: Optional pre-scaling function
+        balance_weights: Whether to globally balance signal and background weights
     
     Returns:
         (train_dataset, val_dataset, test_dataset)
@@ -346,6 +349,24 @@ def create_fold_datasets(
         val_datasets.append(val_ds)
         test_datasets.append(test_ds)
 
+    # Rebalance binary tasks globally so signal and background contribute equally in total.
+    if balance_weights:
+        for datasets in [train_datasets, val_datasets, test_datasets]:
+            if len(datasets) > 0:
+                # Concatenate all labels and weights
+                all_labels = np.concatenate([ds.labels for ds in datasets])
+                all_weights = np.concatenate([ds.weights for ds in datasets])
+                
+                # Apply global balancing
+                balanced_weights = balance_signal_background_weights(all_labels, all_weights)
+                
+                # Distribute balanced weights back to individual datasets
+                start_idx = 0
+                for ds in datasets:
+                    end_idx = start_idx + len(ds)
+                    ds.weights = balanced_weights[start_idx:end_idx]
+                    start_idx = end_idx
+
     # Concatenate datasets from all processes
     from torch.utils.data import ConcatDataset
 
@@ -366,6 +387,7 @@ def create_fold_loaders(
     batch_size: int = 256,
     num_workers: int = 4,
     pin_memory: bool = True,
+    balance_weights: bool = True,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """
     Create PyTorch DataLoaders for train, validation, and test sets.
@@ -378,12 +400,13 @@ def create_fold_loaders(
         batch_size: Batch size
         num_workers: Number of worker processes
         pin_memory: Whether to pin memory
+        balance_weights: Whether to globally balance signal and background weights
     
     Returns:
         (train_loader, val_loader, test_loader)
     """
     train_ds, val_ds, test_ds = create_fold_datasets(
-        parquet_dir, i_fold, task, weight_strategy, scale_fn
+        parquet_dir, i_fold, task, weight_strategy, scale_fn, balance_weights
     )
     
     train_loader = DataLoader(

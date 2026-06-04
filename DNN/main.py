@@ -62,6 +62,7 @@ def train_single_fold(
         batch_size=config.batch_size,
         num_workers=config.num_workers,
         pin_memory=config.pin_memory,
+        balance_weights=config.balance_signal_background_weights,
     )
     
     print(
