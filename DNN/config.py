@@ -17,25 +17,17 @@ import yaml
 
 PROCESS_WEIGHTS = {
     # EW WW polarization states (signal for EW_vs_Background task)
-    "WWjj_EW_LL_WW_cmf": 18.29,
-    "WWjj_EW_LT_WW_cmf": 58.88,
-    "WWjj_EW_TT_WW_cmf": 124.50,
-    "WWjj_EW_LL_pp_cmf": 11.49,
-    "WWjj_EW_LT_pp_cmf": 67.84,
-    "WWjj_EW_TT_pp_cmf": 123.07,
-    "WWjj_EW_MGH7": 206.52,
-    
+    "WWjj_EW_LL_WW_cmf": 0.138912,
+    "WWjj_EW_LT_WW_cmf": 0.440544,
+    "WWjj_EW_TT_WW_cmf": 0.877367,
+
     # Simplified EW process names (for wwzz_mix batch)
-    "WWjj_EW": 206.52,  # Sum of all EW WWjj states
+    "WWjj_EW": 1.436625,  # Sum of all EW WWjj states
     
     # Backgrounds
-    "WWjj_QCD": 24.05,
-    "WWjj_Int": 7.57,
-    "WZjj_EW": 14.95,
-    "WZjj_QCD": 28.50,
-    "top": 5.02,
-    "ZZ": 2.51,
-    "charge_flip": 10.10,
+    "WWjj_QCD": 0.110415,
+    "WZjj_EW": 0.200249,
+    "WZjj_QCD": 0.443649,
 }
 
 WEIGHT_STRATEGIES = {
