@@ -95,6 +95,19 @@ TASK_DEFINITIONS = {
         "signal_label": 1,
         "background_label": 0,
     },
+    "PolState_LL_LT_vs_TT": {
+        "name": "WW Polarization: (LL+LT) vs TT",
+        "type": "binary",
+        "signal_processes": [
+            "WWjj_EW_LL_WW_cmf",
+            "WWjj_EW_LT_WW_cmf",
+        ],
+        "background_processes": [
+            "WWjj_EW_TT_WW_cmf",
+        ],
+        "signal_label": 1,
+        "background_label": 0,
+    }, 
 }
 
 

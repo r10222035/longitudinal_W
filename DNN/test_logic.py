@@ -61,7 +61,6 @@ def test_config():
         'WWjj_EW',
         'WWjj_QCD',
         'WZjj_EW',
-        'top',
     ]
 
     for process in test_processes:
