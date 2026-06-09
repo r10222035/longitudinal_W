@@ -241,7 +241,7 @@ def unroll_2d_to_1d(scores_ew, scores_pol, weights, ww_edges, pol_edges):
 FIT_CONFIGS = {
     "LL": {
         "pol_task_name": "PolState_LL_vs_LT_TT",
-        "default_output_dir_pol": "DNN/results/pol_ll_vs_lt_tt/process",
+        "default_output_dir_pol": "DNN/results/pol_ll_vs_lt_tt/hybrid",
         "signal_processes": ["WWjj_EW_LL_WW_cmf"],
         "norm_bkg_processes": ["WWjj_EW_LT_WW_cmf", "WWjj_EW_TT_WW_cmf"],
         "signal_name": "Signal_LL",
@@ -257,18 +257,18 @@ FIT_CONFIGS = {
     },
     "LL_LT": {
         "pol_task_name": "PolState_LL_LT_vs_TT",
-        "default_output_dir_pol": "DNN/results/pol_ll_lt_vs_tt/process",
+        "default_output_dir_pol": "DNN/results/pol_ll_lt_vs_tt/hybrid",
         "signal_processes": ["WWjj_EW_LL_WW_cmf", "WWjj_EW_LT_WW_cmf"],
         "norm_bkg_processes": ["WWjj_EW_TT_WW_cmf"],
         "signal_name": "Signal_LL_LT",
         "norm_bkg_name": "Background_TT",
         "poi_name": "mu_LL_LT",
         "norm_bkg_param": "mu_T",
-        "ww_edges": [0.0, 0.25, 0.65, 1.0],
+        "ww_edges": [0.0, 0.3, 0.7, 1.0],
         "pol_edges": [
-            [0.0, 0.3, 0.6, 1.0],               # Bin 1 of EW score
-            [0.0, 0.4, 0.7, 1.0],               # Bin 2 of EW score
-            [0.0, 0.3, 0.5, 0.7, 0.9, 1.0]      # Bin 3 of EW score
+            [0.0, 0.3, 0.7, 1.0],               # Bin 1 of EW score
+            [0.0, 0.3, 0.5, 0.6, 0.7, 0.8, 1.0],               # Bin 2 of EW score
+            [0.0, 0.15, 0.35, 0.45, 0.55, 0.7, 1.0]      # Bin 3 of EW score
         ]
     }
 }
