@@ -1189,7 +1189,7 @@
 
         Furthermore, a crucial \textbf{class-balancing} step is enforced. The event weights are globally normalized such that the sum of the weights in the signal category exactly equals the sum of the weights in the background category ($\sum w_{\text{sig}} = \sum w_{\text{bkg}}$). This global scaling preserves the relative physical ratios of the internal sub-processes while preventing the neural network from trivially predicting the majority class to minimize the loss.
 
-        The Hybrid weighting strategy combined with global class balancing provides the most reasonable learning strategy. Thus, we presented the training results of this strategy. Figure~\ref{fig:dnn_score_distributions_signal_background_balanced_weight} illustrates the resulting Dense-NN output evaluated on the test datasets utilizing this optimized weighting scheme. The distributions satisfy our expectation that they exhibit peaks are near to 1 for signal and 0 for the background.
+        The Hybrid weighting strategy combined with global class balancing provides the most reasonable learning strategy. Thus, we presented the training results of this strategy. Figure~\ref{fig:dnn_score_distributions_signal_background_balanced_weight} illustrates the resulting Dense-NN output evaluated on the test datasets utilizing this optimized weighting scheme. The distributions satisfy our expectation that they exhibit peaks near 1 for signal and 0 for the background.
 
         \begin{figure}[htbp]
             \centering
@@ -1313,6 +1313,37 @@
         As shown in the table, defining the polarization in the $WW$ center-of-mass frame yields notably higher expected sensitivities for both the LL and LX states compared to the initial-state partonic frame.
 
     % subsection expected_results (end)
+
+    \subsection{Results of the Statistical Fit}% (fold)
+    \label{sub:results_of_the_statistical_fit}
+
+        Using the profile likelihood fit framework and the unrolled 1D binning configuration described above, we evaluate the expected discovery significance $Z_0$ and the expected $95\%$ CL upper limit on the signal strength parameter $\mu$ for both the LL mode and the LX mode. The fit is performed using the Asimov dataset constructed from our own simulated Monte Carlo samples in the $WW$ center-of-mass frame.
+
+        Table~\ref{tab:our_expected_significance} summarizes our obtained expected discovery significances and expected $95\%$ CL upper limits on the signal strength parameters, alongside the reference results from the thesis~\cite{stange2025longitudinal} for comparison.
+
+        \begin{table}[htpb]
+            \centering
+            \caption{Expected discovery significances ($Z_0$) and expected $95\%$ CL upper limits on the signal strength parameters ($\mu$) for the LL and LX polarization states in the $WW$ center-of-mass frame. The reference values from the thesis are provided for comparison.}
+            \label{tab:our_expected_significance}
+            \begin{tabular}{lcccc}
+                \hline
+                \hline
+                \multirow{2}{*}{Signal State} & \multicolumn{2}{c}{Expected Significance ($Z_0$)} & \multicolumn{2}{c}{Expected 95\% CL Upper Limit} \\
+                \cline{2-5}
+                               & Thesis & Our Result & Thesis & Our Result \\
+                \hline
+                LL ($\mu_{\text{LL}}$)   & $1.512\,\sigma$ & $1.600\,\sigma$ & 2.273 & 1.255 \\
+                LX ($\mu_{\text{LX}}$) & $4.557\,\sigma$ & $4.852\,\sigma$ & --- & --- \\
+                \hline
+                \hline
+            \end{tabular}
+        \end{table}
+
+        As shown in Table~\ref{tab:our_expected_significance}, despite utilizing unoptimized Dense-NNs and slightly varied input features, our simulation successfully reproduces the overall statistical trend. The expected significances are in agreement with the reference values.
+
+    However, a discrepancy is observed in the expected $95\%$ CL upper limit for the LL state, where our result is approximately half of the reference value. This deviation directly highlights the impact of Nuisance Parameters (NPs). Our current fit considers only statistical uncertainties. In a full fit, systematic uncertainties flatten and widen the profile likelihood curve. Consequently, the absence of these systematic constraints results in a tighter upper limit. 
+
+    % subsection results_of_the_statistical_fit (end)
 
 % section statistical_framework (end)
 
