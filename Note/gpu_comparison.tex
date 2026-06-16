@@ -1,0 +1,208 @@
+%!TEX program = xelatex
+%!TEX options=--shell-escape
+\documentclass[12pt]{article}
+
+%
+\usepackage[scheme=plain]{ctex}
+%
+\usepackage{fontspec}
+%
+\usepackage[margin = 1in]{geometry}
+
+%
+\usepackage[dvipsnames]{xcolor}
+\usepackage[many]{tcolorbox}
+
+%
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+%
+\usepackage{tensor}
+%
+\usepackage{slashed}
+\usepackage{physics}
+\usepackage{simpler-wick}
+
+%
+\usepackage{mathtools}
+
+%
+\usepackage{bm}
+\newcommand{\dbar}{\dif\hspace*{-0.18em}\bar{}\hspace*{0.2em}}
+\DeclareMathAlphabet\mathbfcal{OMS}{cmsy}{b}{n}
+%\usepackage{bbold}
+\newcommand*{\dif}{\mathop{}\!\mathrm{d}}
+\newcommand*{\euler}{\mathrm{e}}
+\newcommand*{\imagi}{\mathrm{i}}
+
+\renewcommand{\vec}[1]{\boldsymbol{\mathbf{#1}}}
+
+\usepackage{caption}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage{booktabs}
+
+%
+\usepackage{mathrsfs}
+\usepackage{dsfont}
+
+%
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=violet,
+    filecolor=blue,
+    urlcolor=blue,
+    citecolor=cyan,
+}
+
+%
+\usepackage{graphicx}
+\usepackage{xkeyval} % 載入用來解析 key-value 參數的套件
+
+% ==========================================
+% 自動偵測圖片巨集 (動態讀取 width 終極版)
+% ==========================================
+\makeatletter
+\newlength{\placeholderwidth}
+% 定義一個用來捕捉 width 參數的指令
+\define@key{placeholder}{width}{\setlength{\placeholderwidth}{#1}}
+
+\let\oldincludegraphics\includegraphics 
+
+\renewcommand{\includegraphics}[2][]{%
+  \IfFileExists{../figures/#2}{% 
+    \oldincludegraphics[#1]{#2}% 真實圖片
+  }{%
+    % 1. 先設定一個保底的預設寬度（以防你忘記寫 width=...）
+    \setlength{\placeholderwidth}{0.3\textwidth}%
+    
+    % 2. 動態解析傳入的引數 (#1)
+    % 使用 \setkeys* (有星號) 可以安全地忽略我們不認識的參數 (例如 height 等)
+    \setkeys*{placeholder}{#1}%
+    
+    % 3. 精準校正：扣除 \framebox 預設的內邊距與框線厚度
+    % 這樣能確保佔位框的「總寬度」完完全全等於你指定的 width
+    \addtolength{\placeholderwidth}{-2\fboxsep}%
+    \addtolength{\placeholderwidth}{-2\fboxrule}%
+    
+    % 4. 畫出動態寬度的佔位框
+    \framebox{%
+      \parbox{\placeholderwidth}{%
+        \centering\vspace{1.5cm}
+        \tiny\ttfamily\detokenize{#2}\\ 
+        not found
+        \vspace{1.5cm}%
+      }%
+    }%
+  }%
+}
+\makeatother
+% ==========================================
+% ==========================================
+\usepackage{subfig}
+%
+\graphicspath{{../figures/}}
+
+% \usepackage{tikz}
+% \usetikzlibrary{positioning}
+% \usetikzlibrary{calc}
+
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc, backgrounds}
+
+\usepackage{listings}
+\usepackage{lstautogobble}
+\lstset{
+    basicstyle=\ttfamily,
+    columns=fullflexible,
+    autogobble=true,
+}
+
+%
+\usepackage{indentfirst}
+%
+\setlength{\parindent}{2em}
+\linespread{1.25}
+
+%
+% \setmainfont{Times New Roman}
+
+\title{GPU Performance Comparison}
+\author{Feng-Yang Hsieh}
+\date{}
+
+\begin{document}
+\maketitle
+
+
+\section{Introduction}% (fold)
+\label{sec:introduction}
+
+    In this note, we document the computational performance of our neural network training workflows across multiple high-performance computing (HPC) facilities and our server. The benchmarking focuses on the execution time consumed during the training process.
+
+% section introduction (end)
+
+\section{Hardware Specifications}% (fold)
+\label{sec:hardware_specifications}
+
+    To evaluate computational efficiency, we leverage three distinct computing environments:
+    \begin{itemize}
+        \item \textbf{Our Server:} Equipped with \textbf{NVIDIA RTX A6000} graphics cards.
+        \item \textbf{NCTS Cluster:} Equipped with the \textbf{NVIDIA L40S} and \textbf{NVIDIA RTX A6000} graphics cards.
+        \item \textbf{ASGC DiCOS:} Equipped with the \textbf{NVIDIA L40S}, \textbf{NVIDIA A100} and \textbf{NVIDIA V100} graphics cards.
+    \end{itemize}
+
+% section hardware_specifications (end)
+
+\section{Training Time Comparison}% (fold)
+\label{sec:training_time_comparison}
+
+    The training runs were executed utilizing identical dataset and unified hyperparameter settings to ensure a fair comparison. The benchmarks track the total training duration across three neural networks: the inclusive signal separation (EW vs. bkg) and two polarization-specific networks (LL vs. TX and LX vs. TT). The results are summarized in Table~\ref{tab:gpu_performance}.
+
+    \begin{table}[htbp]
+        \centering
+        \caption{Benchmark results of the Dense-NN training execution time across different computing facilities.}
+        \label{tab:gpu_performance}
+        \begin{tabular}{llccc}
+        \toprule
+                                      &                       & \multicolumn{3}{c}{\textbf{Total Training Time (hh:mm:ss)}}   \\ \cmidrule(lr){3-5} 
+        \textbf{Environment}          & \textbf{GPU Hardware} & \textbf{EW vs. bkg} & \textbf{LL vs. TX} & \textbf{LX vs. TT} \\
+        \midrule
+        Local Server                  & NVIDIA RTX A6000      & 1:04:31             & 2:06:52            & 2:13:23            \\
+        \midrule
+        \multirow{2}{*}{NCTS Cluster} & NVIDIA L40S           & 0:19:05             & 0:33:16            & 0:34:47            \\
+                                      & NVIDIA RTX A6000      & 0:57:09             & 1:49:39            & 1:52:35            \\
+        \midrule
+        \multirow{3}{*}{ASGC DiCOS}   & NVIDIA L40S           & 0:20:58             & 0:32:29            & 0:29:03            \\
+                                      & NVIDIA A100           & 0:34:16             & 1:05:13            & 0:48:04            \\
+                                      & NVIDIA V100           & 0:36:30             & 1:04:19            & 0:57:39            \\
+        \bottomrule
+        \end{tabular}
+    \end{table}
+
+% section training_time_comparison (end)
+
+
+\section{Discussion and Observations}% (fold)
+\label{sec:discussion_and_observations}
+    Based on the benchmark results compiled in Table~\ref{tab:gpu_performance}, several observations regarding GPU architecture and infrastructure limitations can be summarized:
+
+    \begin{itemize}
+        \item \textbf{Generational GPU Architecture Advantage (L40S):} 
+        The NVIDIA L40S (Ada Lovelace architecture) delivers the most prominent acceleration, outperforming all other cards. Its training times remain highly consistent between the NCTS Cluster and ASGC DiCOS. The generational architecture scaling cuts execution times to nearly one-third of the RTX A6000 baseline.
+
+        \item \textbf{Host CPU Bottlenecks on Identical Hardware (RTX A6000):} 
+        Comparing the identical RTX A6000 between our Local Server (\texttt{pheno-2}) and the NCTS Cluster (\texttt{gpuserver03}), the overall execution times stay within the same order of magnitude. However, NCTS shows a 10--15\% speed advantage. \texttt{pheno-2} operates on an Intel Xeon Gold 6252 CPU at 2.10\,GHz, while NCTS utilizes a Xeon Gold 6226R at a higher base clock of 2.90\,GHz. This 38\% increase in host CPU frequency accelerates the data-shuffling and preprocessing pipelines.
+
+        \item \textbf{Performance Saturation (ASGC DiCOS):} 
+        On the ASGC DiCOS platform, the data-center grade NVIDIA A100 (Ampere) and V100 (Volta) cards yield almost the same training durations. This indicates that our workload saturates on these architectures. Crucially, the introduction of the L40S on DiCOS successfully breaks this saturation bottleneck, outperforming both the A100 and V100 by nearly a factor of two.
+    \end{itemize}
+
+% section discussion_and_observations (end)
+
+% \bibliographystyle{ieeetr}
+% \bibliography{reference}
+
+\end{document}
