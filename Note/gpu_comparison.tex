@@ -188,18 +188,64 @@
 
 \section{Discussion and Observations}% (fold)
 \label{sec:discussion_and_observations}
-    Based on the benchmark results compiled in Table~\ref{tab:gpu_performance}, several observations regarding GPU architecture and infrastructure limitations can be summarized:
 
-    \begin{itemize}
-        \item \textbf{Generational Architecture Parity (Ada Lovelace - L40S \& RTX 4090):} 
-            Both the NVIDIA L40S and RTX 4090 are built on the identical Ada Lovelace architecture, outperforming all previous-generation cards. Their execution times are virtually identical. This generational scaling cuts execution times to nearly one-third of the RTX A6000 baseline.
+    \subsection{GPU Hardware Spccifications}% (fold)
+    \label{sub:gpu_hardware_spccifications}
 
-        \item \textbf{Host CPU Bottlenecks on Identical Hardware (RTX A6000):} 
-        Comparing the identical RTX A6000 between our Local Server (\texttt{pheno-2}) and the NCTS Cluster (\texttt{gpuserver03}), the overall execution times stay within the same order of magnitude. However, NCTS shows a 10--15\% speed advantage. \texttt{pheno-2} operates on an Intel Xeon Gold 6252 CPU at 2.10\,GHz, while NCTS utilizes a Xeon Gold 6226R at a higher base clock of 2.90\,GHz. This 38\% increase in host CPU frequency accelerates the data-shuffling and preprocessing pipelines.
+        To understand the performance discrepancies, the fundamental hardware specifications of GPUs are summarized in Table~\ref{tab:gpu_specs}. Crucial metrics such as memory, L2 cache size, and boost clock speed directly dictate the I/O and computational limits for our workload.
 
-        \item \textbf{Workload Characteristics and VRAM Utilization (A100/V100 Saturation):} 
-        On the ASGC DiCOS platform, the data-center grade NVIDIA A100 (Ampere) and V100 (Volta) cards yield almost the same training durations. Because our current Dense-NN workload is relatively lightweight, it does not fully utilize these flagship GPUs. Instead, the training performance becomes purely bound by raw computational speed (FLOPS). Consequently, the newer Ada Lovelace cards (L40S and RTX 4090) outperform both the A100 and V100 by nearly a factor of two.
-    \end{itemize}
+        \begin{table}[htbp]
+            \centering
+            \caption{Hardware specifications of the evaluated NVIDIA GPUs.}
+            \label{tab:gpu_specs}
+            \begin{tabular}{llcccc}
+                \toprule
+                \textbf{GPU} & \textbf{Architecture} & \textbf{Memory} & \textbf{Bandwidth} & \textbf{L2} & \textbf{Clock} \\
+                \midrule
+                RTX A6000    & Ampere                & 48\,GB GDDR6    & 768 GB/s           & 6\,MB       &       1.80 GHz \\
+                V100         & Volta                 & 32\,GB HBM2     & 900 GB/s           & 6\,MB       &       1.53 GHz \\
+                A100 (80GB)  & Ampere                & 80\,GB HBM2e    & 1935 GB/s          & 40\,MB      &       1.41 GHz \\
+                RTX 4090     & Ada Lovelace          & 24\,GB GDDR6X   & 1008 GB/s          & 72\,MB      &       2.52 GHz \\
+                L40S         & Ada Lovelace          & 48\,GB GDDR6    & 864 GB/s           & 96\,MB      &       2.52 GHz \\ 
+                \bottomrule
+            \end{tabular}
+        \end{table}
+
+    % subsection gpu_hardware_spccifications (end)
+
+    \subsection{Decomposition of Execution Time and I/O Analysis}% (fold)
+    \label{sub:decomposition_of_execution_time_and_i_o_analysis}
+
+        For our lightweight Dense-NN tasks (comprising approximately 5\,MB of weights and batch data per iteration), the total execution time is heavily influenced by data movement rather than pure theoretical TFLOPS. The execution time can be decomposed into a four-stage pipeline:
+        \begin{enumerate}
+            \item \textbf{CPU to VRAM:} Data shuffling, preprocessing, and dispatching via the PCIe bus. Limited by Host CPU frequency.
+            \item \textbf{VRAM to L2 Cache:} Moving data from VRAM (GDDR6/HBM2) into the L2 Cache. Limited by memory bandwidth, latency, and L2 cache capacity.
+            \item \textbf{L2 Cache to Core:} Moving data from L2 cache to the L1 cache/Registers for calculation.
+            \item \textbf{Core Computation:} The actual matrix multiplications in the Tensor Cores. Limited strictly by the GPU's clock speed.
+        \end{enumerate}
+
+    % subsection decomposition_of_execution_time_and_i_o_analysis (end)
+
+    \subsection{Key Observations}% (fold)
+    \label{sub:key_observations}
+
+        Based on the benchmark results in Table~\ref{tab:gpu_performance} and the hardware specifications, our observations are as follows:
+
+        \begin{itemize}
+            \item \textbf{The L2 Cache Advantage and Clock Speed Dominance (L40S \& RTX 4090):} 
+            The Ada Lovelace cards deliver the best performance, completing the training in nearly one-third the time of the RTX A6000. Due to their massive L2 caches, these GPUs bypass the GDDR6 latency. With data readily available on-chip, the performance is bottlenecked solely by the core computation.
+
+            \item \textbf{Clock Speed Ceiling on High-Bandwidth Flagships (A100 \& V100):} 
+            The A100 and V100 yield practically identical execution times. Despite the V100 having only 6\,MB of L2 cache, its HBM2 memory provides ultra-low physical latency, easily saturating the I/O requirements for this small workload. The A100's larger L2 cache and extreme HBM2e bandwidth offer no additional benefit here, as the V100 is already not I/O-bound. Consequently, the bottleneck shifts to computation. Since both cards share similar core clock speeds, their training durations naturally tie.
+
+            \item \textbf{Internal I/O Bottleneck and GDDR Latency (RTX A6000):} 
+            The RTX A6000 performs the slowest despite having a higher clock speed than the A100. Due to its minimal 6\,MB L2 cache and  GDDR6 memory, the A6000 suffers from severe latency during Stage 2 (VRAM-to-L2 transfers). The computing cores are frequently starved, waiting for data delivery, rendering its theoretical compute capabilities unachievable.
+
+            \item \textbf{Host CPU Bottlenecks on Identical Hardware (RTX A6000 baseline):} 
+            Comparing the RTX A6000 between our Local Server (\texttt{pheno-2}) and the NCTS Cluster (\texttt{gpuserver03}), NCTS shows a 10--15\% speed advantage. This is primarily a Stage 1 bottleneck. The NCTS node utilizes a Xeon Gold 6226R at a higher base clock of 2.90\,GHz compared to our local 2.10\,GHz CPU. This 38\% increase in host CPU frequency accelerates the initial data-feeding and kernel launch processes.
+        \end{itemize}
+
+    % subsection key_observations (end)
 
 % section discussion_and_observations (end)
 
