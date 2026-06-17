@@ -151,7 +151,7 @@
     \begin{itemize}
         \item \textbf{Our Server:} Equipped with \textbf{NVIDIA RTX A6000} graphics cards.
         \item \textbf{NCTS Cluster:} Equipped with the \textbf{NVIDIA L40S} and \textbf{NVIDIA RTX A6000} graphics cards.
-        \item \textbf{ASGC DiCOS:} Equipped with the \textbf{NVIDIA L40S}, \textbf{NVIDIA A100} and \textbf{NVIDIA V100} graphics cards.
+        \item \textbf{ASGC DiCOS:} Equipped with the \textbf{NVIDIA L40S}, \textbf{NVIDIA RTX 4090}, \textbf{NVIDIA A100} and \textbf{NVIDIA V100} graphics cards.
     \end{itemize}
 
 % section hardware_specifications (end)
@@ -159,7 +159,7 @@
 \section{Training Time Comparison}% (fold)
 \label{sec:training_time_comparison}
 
-    The training runs were executed utilizing identical dataset and unified hyperparameter settings to ensure a fair comparison. The benchmarks track the total training duration across three neural networks: the inclusive signal separation (EW vs. bkg) and two polarization-specific networks (LL vs. TX and LX vs. TT). The results are summarized in Table~\ref{tab:gpu_performance}.
+    The training runs were executed utilizing identical datasets and unified hyperparameter settings to ensure a fair comparison. The benchmarks track the total training duration across three neural networks: the inclusive signal separation (EW vs. bkg) and two polarization-specific networks (LL vs. TX and LX vs. TT). The results are summarized in Table~\ref{tab:gpu_performance}.
 
     \begin{table}[htbp]
         \centering
@@ -175,7 +175,8 @@
         \multirow{2}{*}{NCTS Cluster} & NVIDIA L40S           & 0:19:05             & 0:33:16            & 0:34:47            \\
                                       & NVIDIA RTX A6000      & 0:57:09             & 1:49:39            & 1:52:35            \\
         \midrule
-        \multirow{3}{*}{ASGC DiCOS}   & NVIDIA L40S           & 0:20:58             & 0:32:29            & 0:29:03            \\
+        \multirow{4}{*}{ASGC DiCOS}   & NVIDIA L40S           & 0:20:58             & 0:32:29            & 0:29:03            \\
+                                      & NVIDIA RTX 4090       & 0:20:12             & 0:33:14            & 0:29:24            \\
                                       & NVIDIA A100           & 0:34:16             & 1:05:13            & 0:48:04            \\
                                       & NVIDIA V100           & 0:36:30             & 1:04:19            & 0:57:39            \\
         \bottomrule
@@ -190,14 +191,14 @@
     Based on the benchmark results compiled in Table~\ref{tab:gpu_performance}, several observations regarding GPU architecture and infrastructure limitations can be summarized:
 
     \begin{itemize}
-        \item \textbf{Generational GPU Architecture Advantage (L40S):} 
-        The NVIDIA L40S (Ada Lovelace architecture) delivers the most prominent acceleration, outperforming all other cards. Its training times remain highly consistent between the NCTS Cluster and ASGC DiCOS. The generational architecture scaling cuts execution times to nearly one-third of the RTX A6000 baseline.
+        \item \textbf{Generational Architecture Parity (Ada Lovelace - L40S \& RTX 4090):} 
+            Both the NVIDIA L40S and RTX 4090 are built on the identical Ada Lovelace architecture, outperforming all previous-generation cards. Their execution times are virtually identical. This generational scaling cuts execution times to nearly one-third of the RTX A6000 baseline.
 
         \item \textbf{Host CPU Bottlenecks on Identical Hardware (RTX A6000):} 
         Comparing the identical RTX A6000 between our Local Server (\texttt{pheno-2}) and the NCTS Cluster (\texttt{gpuserver03}), the overall execution times stay within the same order of magnitude. However, NCTS shows a 10--15\% speed advantage. \texttt{pheno-2} operates on an Intel Xeon Gold 6252 CPU at 2.10\,GHz, while NCTS utilizes a Xeon Gold 6226R at a higher base clock of 2.90\,GHz. This 38\% increase in host CPU frequency accelerates the data-shuffling and preprocessing pipelines.
 
-        \item \textbf{Performance Saturation (ASGC DiCOS):} 
-        On the ASGC DiCOS platform, the data-center grade NVIDIA A100 (Ampere) and V100 (Volta) cards yield almost the same training durations. This indicates that our workload saturates on these architectures. Crucially, the introduction of the L40S on DiCOS successfully breaks this saturation bottleneck, outperforming both the A100 and V100 by nearly a factor of two.
+        \item \textbf{Workload Characteristics and VRAM Utilization (A100/V100 Saturation):} 
+        On the ASGC DiCOS platform, the data-center grade NVIDIA A100 (Ampere) and V100 (Volta) cards yield almost the same training durations. Because our current Dense-NN workload is relatively lightweight, it does not fully utilize these flagship GPUs. Instead, the training performance becomes purely bound by raw computational speed (FLOPS). Consequently, the newer Ada Lovelace cards (L40S and RTX 4090) outperform both the A100 and V100 by nearly a factor of two.
     \end{itemize}
 
 % section discussion_and_observations (end)
