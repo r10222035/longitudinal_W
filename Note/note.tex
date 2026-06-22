@@ -1332,8 +1332,8 @@
                 \cline{2-5}
                                & Thesis & Our Result & Thesis & Our Result \\
                 \hline
-                LL ($\mu_{\text{LL}}$)   & $1.512\,\sigma$ & $1.600\,\sigma$ & 2.273 & 1.255 \\
-                LX ($\mu_{\text{LX}}$) & $4.557\,\sigma$ & $4.852\,\sigma$ & --- & --- \\
+                LL ($\mu_{\text{LL}}$)  & $1.512\,\sigma$ & $1.600\,\sigma$ & 2.273 & 1.255 \\
+                LX ($\mu_{\text{LX}}$)  & $4.557\,\sigma$ & $4.852\,\sigma$ & --- & 0.356 \\
                 \hline
                 \hline
             \end{tabular}
@@ -1341,11 +1341,53 @@
 
         As shown in Table~\ref{tab:our_expected_significance}, despite utilizing unoptimized Dense-NNs and slightly varied input features, our simulation successfully reproduces the overall statistical trend. The expected significances are in agreement with the reference values.
 
-    However, a discrepancy is observed in the expected $95\%$ CL upper limit for the LL state, where our result is approximately half of the reference value. This deviation directly highlights the impact of Nuisance Parameters (NPs). Our current fit considers only statistical uncertainties. In a full fit, systematic uncertainties flatten and widen the profile likelihood curve. Consequently, the absence of these systematic constraints results in a tighter upper limit. 
+        However, a discrepancy is observed in the expected $95\%$ CL upper limit for the LL state, where our result is approximately half of the reference value. This deviation directly highlights the impact of Nuisance Parameters (NPs). Our current fit considers only statistical uncertainties. In a full fit, systematic uncertainties flatten and widen the profile likelihood curve. Consequently, the absence of these systematic constraints results in a tighter upper limit. 
 
     % subsection results_of_the_statistical_fit (end)
 
 % section statistical_framework (end)
+
+\section{Some research directions}% (fold)
+\label{sec:some_research_directions}
+
+    We propose some research directions to further enhance the discovery significance and methodological robustness of the longitudinal $W$ boson scattering study.
+
+    \subsection{Enhance the discovery significance}% (fold)
+    \label{sub:enhance_the_discovery_significance}
+
+        The current analysis relies on a baseline Dense-NN, which flattens kinematic features and may lose underlying spatial correlations. We propose to utilize advanced architectures to boost classification accuracy then enhance the discovery significance:
+        \begin{itemize}
+            \item \textbf{Advanced Architectures:} Replace the Dense-NN with CNN, \textbf{ParticleNet} (Graph Neural Networks, GNNs)~\cite{Qu:2019gqs}, or \textbf{Particle Transformer} (ParT)~\cite{Qu:2022mxj} to better capture the complex VBS topologies.
+            \item \textbf{Multi-Task Learning (MTL):} Instead of training separate classifiers for inclusive $WW$ signal and polarization states, implement a single MTL framework with a shared representation space and multiple classification heads. This can yield better generalization and higher separation power.
+            \item \textbf{Multi-Class classification:} Instead of utilizing the step separation strategy, implement a network to distinguish LL, LT, TT, and other background classes directly.
+        \end{itemize}
+
+    % subsection enhance_the_discovery_significance (end)
+
+    \subsection{Unsupervised / Self-supervised learning}% (fold)
+    \label{sub:unsupervised_self_supervised_learning}
+
+        Current supervised training heavily relies on MC simulations, which introduces theoretical uncertainties and potential biases when applied to measured data.
+        \begin{itemize}
+            \item \textbf{Weakly Supervised Learning \& Topic Modeling:} The Classification Without Labels (CWoLa) paradigm~\cite{Metodiev:2017vrx} successfully operates on two mixed data regions for binary classification. We can extend this to multi-class scenarios using Topic Modeling~\cite{Metodiev:2018ftz}. This approach treats different mixed sample regions as ``documents'' and the underlying physics processes (e.g., pure LL, LT, TT states) as ``topics,'' enabling the extraction of pure kinematic distributions directly from collision data.
+            
+            \item \textbf{Self-Supervised Contrastive Learning:} Implementing self-supervised frameworks, such as JetCLR~\cite{Dillon:2021gag}, allows the neural network to learn robust, physics-invariant representations without requiring explicit MC labels. By applying physical data augmentations (e.g., azimuthal rotations, longitudinal boosts, or momentum smearing), the model maps physically similar events closer together in a latent space. This latent representation can subsequently be evaluated or fine-tuned using minimal MC labels via linear probing.
+            
+            \item \textbf{Objective and Impact:} The ultimate goal is to exploit these data-driven techniques to construct optimal kinematic observables and isolate the polarization states with minimal dependence on pure MC labels.
+        \end{itemize}
+
+    % subsection unsupervised_self_supervised_learning (end)
+
+    \subsection{Fully Hadronic Channel}% (fold)
+    \label{sub:fully_hadronic_channel}
+
+        While the baseline analysis focuses on the clean same-sign fully leptonic channel ($\ell^\pm\nu\ell^\pm\nu$), the fully hadronic decay mode ($WW \to qqqq$) represents a compelling yet highly challenging frontier for VBS polarization studies. To date, no experimental results for VBS exist in this channel. 
+
+    % subsection fully_hadronic_channel (end)
+
+
+% section some_research_directions (end)
+
 
 \bibliographystyle{ieeetr}
 \bibliography{reference}
