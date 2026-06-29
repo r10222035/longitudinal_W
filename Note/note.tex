@@ -126,6 +126,7 @@
 \setlength{\parindent}{2em}
 \linespread{1.25}
 
+
 %
 % \setmainfont{Times New Roman}
 
@@ -1165,7 +1166,7 @@
                 \includegraphics[width=0.45\textwidth]{dnn_score_dist_pol_ll_vs_lttt_binary_unstacked.pdf}
                 \label{fig:score_pol}
             }
-            \caption{Distributions of the DNN output scores for the test datasets. (a) The inclusive $\text{DNN}_{W^{\pm}W^{\pm}}$ separating the EW signal from backgrounds. (b) The $\text{DNN}_{\text{pol}}$ distinguishing the LL signal from the TX states.}
+            \caption{Distributions of the DNN output scores for the test datasets. (a) The inclusive $\text{DNN}_{W^{\pm}W^{\pm}}$ separating the EW signal from backgrounds. (b) The $\text{DNN}_{\text{pol}}$ distinguishes the LL signal from the TX states.}
             \label{fig:dnn_score_distributions}
         \end{figure}
 
@@ -1189,7 +1190,7 @@
 
         Furthermore, a crucial \textbf{class-balancing} step is enforced. The event weights are globally normalized such that the sum of the weights in the signal category exactly equals the sum of the weights in the background category ($\sum w_{\text{sig}} = \sum w_{\text{bkg}}$). This global scaling preserves the relative physical ratios of the internal sub-processes while preventing the neural network from trivially predicting the majority class to minimize the loss.
 
-        The Hybrid weighting strategy combined with global class balancing provides the most reasonable learning strategy. Thus, we presented the training results of this strategy. Figure~\ref{fig:dnn_score_distributions_signal_background_balanced_weight} illustrates the resulting Dense-NN output evaluated on the test datasets utilizing this optimized weighting scheme. The distributions satisfy our expectation that they exhibit peaks near 1 for signal and 0 for the background.
+        The Hybrid weighting strategy, combined with global class balancing, provides the most reasonable learning strategy. Thus, we presented the training results of this strategy. Figure~\ref{fig:dnn_score_distributions_signal_background_balanced_weight} illustrates the resulting Dense-NN output evaluated on the test datasets utilizing this optimized weighting scheme. The distributions satisfy our expectation that they exhibit peaks near 1 for the signal and 0 for the background.
 
         \begin{figure}[htbp]
             \centering
@@ -1199,7 +1200,7 @@
             \subfloat[$\text{DNN}_{\text{pol}}$ Score Distribution]{
                 \includegraphics[width=0.45\textwidth]{dnn_score_dist_pol_ll_vs_lttt_binary_unstacked_hybrid.pdf}
             }
-            \caption{Distributions of the DNN output scores for the test datasets using the optimized hybrid weighting strategy. (a) The inclusive $\text{DNN}_{W^{\pm}W^{\pm}}$ separating the EW signal from backgrounds. (b) The $\text{DNN}_{\text{pol}}$ distinguishing the LL signal from the TX states.}
+            \caption{Distributions of the DNN output scores for the test datasets using the optimized hybrid weighting strategy. (a) The inclusive $\text{DNN}_{W^{\pm}W^{\pm}}$ separating the EW signal from backgrounds. (b) The $\text{DNN}_{\text{pol}}$ distinguishes the LL signal from the TX states.}
             \label{fig:dnn_score_distributions_signal_background_balanced_weight}
         \end{figure}
 
@@ -1355,7 +1356,7 @@
     \subsection{Enhance the discovery significance}% (fold)
     \label{sub:enhance_the_discovery_significance}
 
-        The current analysis relies on a baseline Dense-NN, which flattens kinematic features and may lose underlying spatial correlations. We propose to utilize advanced architectures to boost classification accuracy then enhance the discovery significance:
+        The current analysis relies on a baseline Dense-NN, which flattens kinematic features and may lose underlying spatial correlations. We propose to utilize advanced architectures to boost classification accuracy, then enhance the discovery significance:
         \begin{itemize}
             \item \textbf{Advanced Architectures:} Replace the Dense-NN with CNN, \textbf{ParticleNet} (Graph Neural Networks, GNNs)~\cite{Qu:2019gqs}, or \textbf{Particle Transformer} (ParT)~\cite{Qu:2022mxj} to better capture the complex VBS topologies.
             \item \textbf{Multi-Task Learning (MTL):} Instead of training separate classifiers for inclusive $WW$ signal and polarization states, implement a single MTL framework with a shared representation space and multiple classification heads. This can yield better generalization and higher separation power.
@@ -1367,7 +1368,7 @@
     \subsection{Unsupervised / Self-supervised learning}% (fold)
     \label{sub:unsupervised_self_supervised_learning}
 
-        Current supervised training heavily relies on MC simulations, which introduces theoretical uncertainties and potential biases when applied to measured data.
+        Current supervised training heavily relies on MC simulations, which introduce theoretical uncertainties and potential biases when applied to measured data.
         \begin{itemize}
             \item \textbf{Weakly Supervised Learning \& Topic Modeling:} The Classification Without Labels (CWoLa) paradigm~\cite{Metodiev:2017vrx} successfully operates on two mixed data regions for binary classification. We can extend this to multi-class scenarios using Topic Modeling~\cite{Metodiev:2018ftz}. This approach treats different mixed sample regions as ``documents'' and the underlying physics processes (e.g., pure LL, LT, TT states) as ``topics,'' enabling the extraction of pure kinematic distributions directly from collision data.
             
@@ -1385,11 +1386,75 @@
 
     % subsection fully_hadronic_channel (end)
 
-
 % section some_research_directions (end)
+
+\section{Fully Hadronic Channel on VBS analysis}% (fold)
+\label{sec:fully_hadronic_channel_on_vbs_analysis}
+
+    The study of Vector Boson Scattering (VBS) in the fully hadronic decay channel ($VV \to 4q$ and $ZV \to 2\nu 2q$, where $V = W, Z$) provides a critical test of the Standard Model due to its large branching fraction. In this section, we summarize the analysis status, review the literature on fully hadronic VBS, and discuss potential phenomenological research directions.
+
+    \subsection{Summary of literature review}% (fold)
+    \label{sub:summary_of_literature_review}
+
+        While polarized vector boson scattering has been studied in leptonic channels, there are currently no experimental results for polarized VBS (such as $W_{\text{L}} W_{\text{L}}$) in the fully hadronic channel. Even for unpolarized Standard Model VBS, no public experimental observations in the fully hadronic channel have been reported to date. This is due to the lack of distinct resonant peaks and the presence of an overwhelming QCD multijet background. This absence of fully hadronic SM VBS measurements is highlighted in ATLAS conference (2024) reviews~\cite{Wang:2909208} and a recent (2026) VBS review article~\cite{Folgueras:2026}, which omit the fully hadronic final state entirely. Currently, the only detailed study of the unpolarized Standard Model VBS in the fully hadronic final state is documented in the Ph.D. thesis of Miao Hu~\cite{hu_2022}, which is discussed in detail in Section~\ref{sub:summary_of_the_hadronic_vbs_analysis}.
+
+        In contrast to the Standard Model VBS measurements, the only public experimental results in the fully hadronic final state at the LHC are searches for heavy resonances decaying to boosted vector boson pairs ($VV \to qqqq$), such as those conducted by ATLAS~\cite{ATLAS:2019jov} and CMS~\cite{CMS:2022qyn}. These searches exploit highly boosted topologies where the decay products of each vector boson are collimated into a single large-radius jet. By employing advanced jet substructure techniques, these analyses successfully suppress the massive QCD multijet background.
+
+        On the phenomenological side, studies have investigated the potential of the hadronic VBS final state to probe new physics. For instance, Ref.~\cite{Delgado:2019} has explored the sensitivity of the LHC to the resonance in the $WW$ hadronic channel using boosted topologies.
+
+    % subsection summary_of_literature_review (end)
+
+    \subsection{Summary of the Hadronic VBS Analysis}% (fold)
+    \label{sub:summary_of_the_hadronic_vbs_analysis}
+
+        The key aspects of the analysis in Ref.~\cite{hu_2022} are summarized below:
+        \begin{itemize}
+            \item \textbf{Event Categorization:} One of the vector bosons is required to decay in a hadronic channel only, and this vector boson can be boosted or resolved. The other vector bosons are considered in three decay modes: $Z \to \nu\nu$, boosted $Z \to c \overline{c}/ b \overline{b}$, or boosted $V \to q'q'$. Thus, $2\times 3 =6$ categories are supposed to be identified. However, two all visible resolved regions are not considered.
+            \begin{itemize}
+                \item \textbf{Boosted-Invisible (B-MET):} One boosted $V \to qq$ and one invisibly decaying $Z \to \nu\nu$, characterized by high $E_{\text{T}}^{\text{miss}}$ and one AK8 jet.
+                \item \textbf{Boosted-withB (B-Btag):} Two boosted $V$ bosons with at least one decaying to heavy-flavor quarks ($Z \to b\bar{b}/c\bar{c}$).
+                \item \textbf{Boosted-Boosted (B-B):} Two boosted $V$ bosons decaying to light quarks, characterized by low $E_{\text{T}}^{\text{miss}}$ and two identified AK8 jets.
+                \item \textbf{Resolved-Invisible (R-MET):} One resolved $V \to qq$ and one invisibly decaying $Z \to \nu\nu$, characterized by high $E_{\text{T}}^{\text{miss}}$, zero AK8 jets, and multiple AK4 jets.
+            \end{itemize}
+            
+            \item \textbf{Results:} Using a simultaneous fit to the MVA templates across the signal and control regions, the combined analysis reports an expected significance of $3.9\,\sigma$ (specifically $3.88\,\sigma$) for the EW $VV$ production.
+        \end{itemize}
+
+    % subsection summary_of_the_hadronic_vbs_analysis (end)
+
+    \subsection{Possible research directions}% (fold)
+    \label{sub:possible_research_directions}
+
+        In the experimental CMS analysis~\cite{hu_2022}, the two ``all-visible'' categories are discarded. This is due to trigger bottlenecks at the LHC as well as the overwhelming QCD multijet background. Both experimental searches and phenomenological VBS studies have focused almost exclusively on boosted boson topologies. Currently, there is no discussion in the literature regarding the feasibility of a fully resolved hadronic VBS final state, where all vector boson decay products are resolved into individual jets.
+
+        We propose to investigate the feasibility of the fully resolved VBS hadronic final state. The primary limitations in this channel are the complex jet combinatorics and signal-background separation. To address these challenges, we can employ advanced machine learning architectures:
+        \begin{itemize}
+			\item Jet Pairing and Classification with \textsc{Spa-Net}: In the fully resolved channel ($VVjj \to 6j$), matching the six reconstructed jets to their parent particles is a severe combinatorics problem. We can utilize Symmetry Preserving Attention Networks (\textsc{Spa-Net}) to perform jet pairing and event classification. By training \textsc{Spa-Net} to learn the underlying symmetries of the VBS decay topology, we can reconstruct the parent bosons and distinguish the VBS signal from the QCD multijet background.
+
+				Furthermore, as discussed in Ref.~\cite{Li:2024qip}, generalized \textsc{Spa-Net} models can simultaneously handle both boosted and resolved topologies, offering a unified reconstruction framework for future studies.
+        \end{itemize}
+
+    % subsection possible_research_directions (end)
+
+    \subsection{Proposed analysis workflow for the resolved channel}% (fold)
+    \label{sub:proposed_analysis_workflow_for_the_resolved_channel}
+
+        To implement the fully resolved hadronic VBS polarization analysis, we propose the following step-by-step workflow:
+        \begin{enumerate}
+            \item \textbf{Event Generation and Truth Matching:} Generate Monte Carlo samples for the signal electroweak process ($pp \to WWjj \to qqqqjj$ in polarized states $W_{\text{L}} W_{\text{L}}$, $W_{\text{L}} W_{\text{T}}$, and $W_{\text{T}} W_{\text{T}}$) and the dominant QCD multijet background. A truth-matching script will match reconstructed $R=0.4$ jets to generator-level quarks to label the correct jet-parton assignments for \textsc{Spa-Net} training.
+            \item \textbf{Pre-selection cuts:} Apply basic event selection cuts to identify VBS candidate events, such as requiring at least six reconstructed jets with $p_{\text{T}} > 20\,\mathrm{GeV}$ and $|\eta| < 5$. Reference the Ph.D. thesis of Miao Hu~\cite{hu_2022}.
+            \item \textbf{\textsc{Spa-Net} training and inference:} Train \textsc{Spa-Net} on the truth-matched resolved samples to perform jet-parton assignment and classify electroweak signal against the QCD background. During inference, \textsc{Spa-Net} will output the most probable jet-parton pairing and event-level classification scores.
+            \item \textbf{Observable reconstruction and Neural Network scores:} Using the jet pairings predicted by \textsc{Spa-Net}, we reconstruct the parent $W$ bosons. We can either construct physical decay angles or utilize the output classification scores from the neural network.
+            \item \textbf{Statistical fit:} Use the resulting distributions to perform a profile likelihood fit to evaluate the expected discovery significance or the upper limit for the longitudinal polarization (or the $WW$ channel).
+        \end{enumerate}
+
+    % subsection proposed_analysis_workflow_for_the_resolved_channel (end)
+    
+% section fully_hadronic_channel_on_vbs_analysis (end)
 
 
 \bibliographystyle{ieeetr}
 \bibliography{reference}
+
 
 \end{document}
