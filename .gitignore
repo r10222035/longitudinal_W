@@ -20,7 +20,7 @@ Sample/Sherpa/
 Sample/Parquet/
 
 DNN/configs/
-DNN/results/
+*/results/
 
 .vscode
 

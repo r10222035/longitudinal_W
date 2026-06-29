@@ -1,0 +1,16 @@
+batch_size: 256
+num_workers: 16
+pin_memory: true
+task: EW_vs_Background
+model_structure: ParT_Light
+num_channels: 3
+pt_log_scale: true
+learning_rate: 0.001
+weight_strategy: hybrid
+balance_signal_background_weights: true
+max_epochs: 200
+early_stopping_patience: 10
+early_stopping_threshold: 0
+parquet_dir: Sample/Parquet/batch_sr_parquet_mg_sample
+output_dir: ./ParT/results/ew_vs_bg
+seed: 42
