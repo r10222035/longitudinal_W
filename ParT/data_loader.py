@@ -30,6 +30,9 @@ from DNN.data_loader import (
 )
 
 
+_GLOBAL_DATA_CACHE = {}
+
+
 class ParTFoldDataset(Dataset):
     """PyTorch Dataset for Parquet files with deterministic 5-fold splitting and
 
@@ -52,6 +55,7 @@ class ParTFoldDataset(Dataset):
         task: str = "EW_vs_Background",
         weight_strategy: str = "hybrid",
         pt_log_scale: bool = True,
+        max_particles: int = 128,
     ):
         assert i_fold in range(5), f"i_fold must be 0-4, got {i_fold}"
         assert fold_type in ["train", "val", "test"], \
@@ -63,18 +67,33 @@ class ParTFoldDataset(Dataset):
         self.task = task
         self.weight_strategy = weight_strategy
         self.pt_log_scale = pt_log_scale
+        self.max_particles = max_particles
 
-        # Load and merge Parquet files
-        print(f"Loading Parquet files for process '{process_name}'...")
-        df = load_and_merge_parquet(parquet_file_paths)
-        print(f"  Loaded {len(df)} events")
-
-        # Auto-assign EventNumber based on row index
-        event_numbers = np.arange(len(df))
+        # Check if features are already loaded and processed in global cache
+        cache_key = (process_name, pt_log_scale, max_particles)
+        
+        if cache_key not in _GLOBAL_DATA_CACHE:
+            print(f"Loading Parquet files for process '{process_name}' (First time, caching)...")
+            df = load_and_merge_parquet(parquet_file_paths)
+            print(f"  Loaded {len(df)} events")
+            
+            event_numbers = np.arange(len(df))
+            features = self.reconstruct_sequence(df, pt_log_scale)
+            
+            _GLOBAL_DATA_CACHE[cache_key] = {
+                "features": features,
+                "event_numbers": event_numbers,
+                "n_events": len(df)
+            }
+            
+        cache = _GLOBAL_DATA_CACHE[cache_key]
+        all_features = cache["features"]
+        all_event_numbers = cache["event_numbers"]
+        n_events = cache["n_events"]
 
         # Fold splitting logic
-        test_mask = (event_numbers - i_fold) % 5 == 0
-        val_mask = (event_numbers - i_fold + 1) % 5 == 0
+        test_mask = (all_event_numbers - i_fold) % 5 == 0
+        val_mask = (all_event_numbers - i_fold + 1) % 5 == 0
         train_mask = ~(test_mask | val_mask)
 
         if fold_type == "train":
@@ -84,87 +103,149 @@ class ParTFoldDataset(Dataset):
         else:  # test
             mask = test_mask
 
-        # Apply fold filter
-        df = df[mask].reset_index(drop=True)
-        self.event_numbers = event_numbers[mask]
+        # Filter features and event numbers for the current fold/split
+        self.features = all_features[mask]
+        self.event_numbers = all_event_numbers[mask]
+        n_filtered = len(self.features)
 
-        print(f"  Fold {i_fold} ({fold_type}): {len(df)} events")
+        print(f"  Fold {i_fold} ({fold_type}): {n_filtered} events (from cached {n_events} events)")
 
-        # Reconstruct events into shape (N, 5, 6)
-        self.features = self.reconstruct_sequence(df, pt_log_scale)
-
-        # Assign labels and weights
+        # Assign labels and weights based on the filtered event counts
         label, process_weight = get_process_label_and_weight(process_name, task)
-        self.labels = np.full(len(df), label, dtype=np.int64)
+        self.labels = np.full(n_filtered, label, dtype=np.int64)
         sample_weight = compute_sample_weight(
             process_weight=process_weight,
-            n_events=len(df),
+            n_events=n_filtered,
             strategy=weight_strategy,
         )
-        self.weights = np.full(len(df), sample_weight, dtype=np.float32)
+        self.weights = np.full(n_filtered, sample_weight, dtype=np.float32)
 
     def reconstruct_sequence(self, df: pd.DataFrame, pt_log_scale: bool) -> np.ndarray:
-        """Reconstruct event features from pandas DataFrame into (N, 5, 6) NumPy array."""
+        """Reconstruct event features from pandas DataFrame into sequence format.
+        
+        Supports both low-level (Track & Tower) features and high-level reconstructed variables.
+        """
         N = len(df)
-        features = np.zeros((N, 5, 6), dtype=np.float32)
+        
+        # Check if dataset contains low-level constituent columns
+        is_low_level = "track_pt" in df.columns and "tower_et" in df.columns
+        
+        if is_low_level:
+            max_particles = getattr(self, "max_particles", 128)
+            features = np.full((N, max_particles, 5), np.nan, dtype=np.float32)
+            
+            # Read columns
+            raw_track_pts = df["track_pt"].values
+            track_etas = df["track_eta"].values
+            track_phis = df["track_phi"].values
 
-        # Read base variables
-        l1_pt = df["l1_pt"].values.astype(np.float32)
-        l1_eta = df["l1_eta"].values.astype(np.float32)
+            raw_tower_ets = df["tower_et"].values
+            tower_etas = df["tower_eta"].values
+            tower_phis = df["tower_phi"].values
 
-        l2_pt = df["l2_pt"].values.astype(np.float32)
-        l2_eta = df["l2_eta"].values.astype(np.float32)
-        dphi_l2_l1 = df["dphi_l2_l1"].values.astype(np.float32)
+            # Pre-apply log scale and convert to numpy array to avoid repeated calls in the loop
+            if pt_log_scale:
+                track_pts = [np.log(np.maximum(np.array(x, dtype=np.float32), 1e-3)) if len(x) > 0 else np.array([], dtype=np.float32) for x in raw_track_pts]
+                tower_ets = [np.log(np.maximum(np.array(x, dtype=np.float32), 1e-3)) if len(x) > 0 else np.array([], dtype=np.float32) for x in raw_tower_ets]
+            else:
+                track_pts = [np.array(x, dtype=np.float32) for x in raw_track_pts]
+                tower_ets = [np.array(x, dtype=np.float32) for x in raw_tower_ets]
 
-        j1_pt = df["j1_pt"].values.astype(np.float32)
-        j1_eta = df["j1_eta"].values.astype(np.float32)
-        dphi_j1_l1 = df["dphi_j1_l1"].values.astype(np.float32)
+            for i in range(N):
+                t_pt = track_pts[i]
+                t_eta = np.array(track_etas[i], dtype=np.float32)
+                t_phi = np.array(track_phis[i], dtype=np.float32)
+                n_tr = len(t_pt)
 
-        j2_pt = df["j2_pt"].values.astype(np.float32)
-        j2_eta = df["j2_eta"].values.astype(np.float32)
-        dphi_j2_l1 = df["dphi_j2_l1"].values.astype(np.float32)
+                w_et = tower_ets[i]
+                w_eta = np.array(tower_etas[i], dtype=np.float32)
+                w_phi = np.array(tower_phis[i], dtype=np.float32)
+                n_tow = len(w_et)
 
-        met_et = df["met_et"].values.astype(np.float32)
-        dphi_met_l1 = df["dphi_met_l1"].values.astype(np.float32)
+                total = n_tr + n_tow
+                if total == 0:
+                    continue
 
-        if pt_log_scale:
-            l1_pt = np.log(np.maximum(l1_pt, 1e-3))
-            l2_pt = np.log(np.maximum(l2_pt, 1e-3))
-            j1_pt = np.log(np.maximum(j1_pt, 1e-3))
-            j2_pt = np.log(np.maximum(j2_pt, 1e-3))
-            met_et = np.log(np.maximum(met_et, 1e-3))
+                # Concatenate features
+                evt_pts = np.concatenate([t_pt, w_et])
+                evt_etas = np.concatenate([t_eta, w_eta])
+                evt_phis = np.concatenate([t_phi, w_phi])
 
-        # Fill Row 0: Lepton 1 (Type: [1, 0, 0])
-        features[:, 0, 0] = l1_pt
-        features[:, 0, 1] = l1_eta
-        features[:, 0, 2] = 0.0
-        features[:, 0, 3] = 1.0
+                # Select top max_particles based on pt/et (using fast partition if total > max_particles)
+                if total > max_particles:
+                    idx = np.argpartition(evt_pts, -max_particles)[-max_particles:]
+                    idx = idx[np.argsort(evt_pts[idx])[::-1]]
+                else:
+                    idx = np.argsort(evt_pts)[::-1]
 
-        # Fill Row 1: Lepton 2 (Type: [1, 0, 0])
-        features[:, 1, 0] = l2_pt
-        features[:, 1, 1] = l2_eta
-        features[:, 1, 2] = dphi_l2_l1
-        features[:, 1, 3] = 1.0
+                n_to_fill = len(idx)
+                features[i, :n_to_fill, 0] = evt_pts[idx]
+                features[i, :n_to_fill, 1] = evt_etas[idx]
+                features[i, :n_to_fill, 2] = evt_phis[idx]
+                features[i, :n_to_fill, 3] = (idx < n_tr).astype(np.float32)
+                features[i, :n_to_fill, 4] = (idx >= n_tr).astype(np.float32)
+                
+            return features
+        else:
+            features = np.zeros((N, 5, 6), dtype=np.float32)
 
-        # Fill Row 2: Jet 1 (Type: [0, 1, 0])
-        features[:, 2, 0] = j1_pt
-        features[:, 2, 1] = j1_eta
-        features[:, 2, 2] = dphi_j1_l1
-        features[:, 2, 4] = 1.0
+            # Read base variables
+            l1_pt = df["l1_pt"].values.astype(np.float32)
+            l1_eta = df["l1_eta"].values.astype(np.float32)
 
-        # Fill Row 3: Jet 2 (Type: [0, 1, 0])
-        features[:, 3, 0] = j2_pt
-        features[:, 3, 1] = j2_eta
-        features[:, 3, 2] = dphi_j2_l1
-        features[:, 3, 4] = 1.0
+            l2_pt = df["l2_pt"].values.astype(np.float32)
+            l2_eta = df["l2_eta"].values.astype(np.float32)
+            dphi_l2_l1 = df["dphi_l2_l1"].values.astype(np.float32)
 
-        # Fill Row 4: MET (Type: [0, 0, 1])
-        features[:, 4, 0] = met_et
-        features[:, 4, 1] = 0.0
-        features[:, 4, 2] = dphi_met_l1
-        features[:, 4, 5] = 1.0
+            j1_pt = df["j1_pt"].values.astype(np.float32)
+            j1_eta = df["j1_eta"].values.astype(np.float32)
+            dphi_j1_l1 = df["dphi_j1_l1"].values.astype(np.float32)
 
-        return features
+            j2_pt = df["j2_pt"].values.astype(np.float32)
+            j2_eta = df["j2_eta"].values.astype(np.float32)
+            dphi_j2_l1 = df["dphi_j2_l1"].values.astype(np.float32)
+
+            met_et = df["met_et"].values.astype(np.float32)
+            dphi_met_l1 = df["dphi_met_l1"].values.astype(np.float32)
+
+            if pt_log_scale:
+                l1_pt = np.log(np.maximum(l1_pt, 1e-3))
+                l2_pt = np.log(np.maximum(l2_pt, 1e-3))
+                j1_pt = np.log(np.maximum(j1_pt, 1e-3))
+                j2_pt = np.log(np.maximum(j2_pt, 1e-3))
+                met_et = np.log(np.maximum(met_et, 1e-3))
+
+            # Fill Row 0: Lepton 1 (Type: [1, 0, 0])
+            features[:, 0, 0] = l1_pt
+            features[:, 0, 1] = l1_eta
+            features[:, 0, 2] = 0.0
+            features[:, 0, 3] = 1.0
+
+            # Fill Row 1: Lepton 2 (Type: [1, 0, 0])
+            features[:, 1, 0] = l2_pt
+            features[:, 1, 1] = l2_eta
+            features[:, 1, 2] = dphi_l2_l1
+            features[:, 1, 3] = 1.0
+
+            # Fill Row 2: Jet 1 (Type: [0, 1, 0])
+            features[:, 2, 0] = j1_pt
+            features[:, 2, 1] = j1_eta
+            features[:, 2, 2] = dphi_j1_l1
+            features[:, 2, 4] = 1.0
+
+            # Fill Row 3: Jet 2 (Type: [0, 1, 0])
+            features[:, 3, 0] = j2_pt
+            features[:, 3, 1] = j2_eta
+            features[:, 3, 2] = dphi_j2_l1
+            features[:, 3, 4] = 1.0
+
+            # Fill Row 4: MET (Type: [0, 0, 1])
+            features[:, 4, 0] = met_et
+            features[:, 4, 1] = 0.0
+            features[:, 4, 2] = dphi_met_l1
+            features[:, 4, 5] = 1.0
+
+            return features
 
     def __len__(self) -> int:
         return len(self.features)
@@ -192,6 +273,7 @@ def create_fold_datasets(
     weight_strategy: str = "hybrid",
     pt_log_scale: bool = True,
     balance_weights: bool = True,
+    max_particles: int = 128,
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """Create train, validation, and test datasets for a given fold."""
     # Get all Parquet files by process
@@ -211,13 +293,13 @@ def create_fold_datasets(
             continue
 
         train_ds = ParTFoldDataset(
-            file_paths, process_name, i_fold, "train", task, weight_strategy, pt_log_scale
+            file_paths, process_name, i_fold, "train", task, weight_strategy, pt_log_scale, max_particles
         )
         val_ds = ParTFoldDataset(
-            file_paths, process_name, i_fold, "val", task, weight_strategy, pt_log_scale
+            file_paths, process_name, i_fold, "val", task, weight_strategy, pt_log_scale, max_particles
         )
         test_ds = ParTFoldDataset(
-            file_paths, process_name, i_fold, "test", task, weight_strategy, pt_log_scale
+            file_paths, process_name, i_fold, "test", task, weight_strategy, pt_log_scale, max_particles
         )
 
         train_datasets.append(train_ds)
@@ -253,10 +335,11 @@ def create_fold_loaders(
     num_workers: int = 4,
     pin_memory: bool = True,
     balance_weights: bool = True,
+    max_particles: int = 128,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """Create PyTorch DataLoaders for train, validation, and test splits."""
     train_ds, val_ds, test_ds = create_fold_datasets(
-        parquet_dir, i_fold, task, weight_strategy, pt_log_scale, balance_weights
+        parquet_dir, i_fold, task, weight_strategy, pt_log_scale, balance_weights, max_particles
     )
 
     train_loader = DataLoader(

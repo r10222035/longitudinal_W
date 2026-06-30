@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "DNN"))
 
 from ParT.data_loader import create_fold_loaders
 from ParT.model import ParT_Light, ParT_Baseline
-from ParT.train import Trainer, plot_auc_history, plot_loss_history, save_metrics_json
+from ParT.train import Trainer, plot_auc_history, plot_loss_history, save_metrics_json, plot_score_distribution
 
 from DNN.config import TASK_DEFINITIONS
 
@@ -103,6 +103,7 @@ def train_single_fold(
         num_workers=config.num_workers,
         pin_memory=config.pin_memory,
         balance_weights=config.balance_signal_background_weights,
+        max_particles=getattr(config, "max_particles", 128),
     )
     
     print(
@@ -150,6 +151,17 @@ def train_single_fold(
     auc_plot_path = fold_output_dir / "auc_history.pdf"
     plot_loss_history(history, str(loss_plot_path))
     plot_auc_history(history, str(auc_plot_path))
+    
+    # Plot test score distribution
+    print("Generating score distribution plot on test set...")
+    probs, labels, _ = trainer.get_predictions(test_loader)
+    score_plot_path = fold_output_dir / "score_distribution.pdf"
+    plot_score_distribution(
+        probs=probs,
+        labels=labels,
+        task_name=config.task,
+        output_path=str(score_plot_path),
+    )
     
     # Prepare fold results
     fold_results = {

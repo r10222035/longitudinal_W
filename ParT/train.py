@@ -14,6 +14,8 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+
 
 # Add workspace directory to python path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -208,6 +210,35 @@ class Trainer:
         
         return metrics
 
+    @torch.no_grad()
+    def get_predictions(self, loader: DataLoader) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Get model predictions (probabilities), true labels, and weights.
+        
+        Returns:
+            Tuple of (probabilities, labels, weights)
+        """
+        self.model.eval()
+        
+        all_logits = []
+        all_labels = []
+        all_weights = []
+        
+        for batch_features, batch_labels, batch_weights, batch_event_ids in loader:
+            batch_features = batch_features.to(self.device)
+            logits = self.model(batch_features)
+            
+            all_logits.append(logits.cpu().numpy().squeeze())
+            all_labels.append(batch_labels.numpy())
+            all_weights.append(batch_weights.numpy())
+            
+        all_logits = np.concatenate(all_logits)
+        all_labels = np.concatenate(all_labels)
+        all_weights = np.concatenate(all_weights)
+        
+        probs = 1.0 / (1.0 + np.exp(-all_logits))
+        
+        return probs, all_labels, all_weights
+
     def save_checkpoint(self, checkpoint_path: str) -> None:
         """Save model checkpoint."""
         torch.save(self.model.state_dict(), checkpoint_path)
@@ -276,3 +307,79 @@ class Trainer:
         print(f"Test ROC-AUC: {test_metrics['roc_auc']:.6f}")
         
         return self.history
+
+
+def plot_score_distribution(
+    probs: np.ndarray,
+    labels: np.ndarray,
+    task_name: str,
+    output_path: str,
+) -> None:
+    """Plot score distribution for signal and background.
+    
+    Args:
+        probs: Model predicted probabilities (n_samples,)
+        labels: True labels (n_samples,) with values 0 or 1
+        task_name: Name of the task (e.g. 'EW_vs_Background')
+        output_path: Path to save the PDF plot
+    """
+    if task_name == "EW_vs_Background":
+        xlabel = r"ParT$_{W^{\pm}W^{\pm}}$ Score"
+        sig_label = r"$W^{\pm}W^{\pm}\text{-EW}$"
+        bg_label = r"Backgrounds"
+    elif task_name == "PolState_LL_vs_LT_TT":
+        xlabel = r"ParT$_{\mathrm{pol}}$ Score"
+        sig_label = r"$W_{\mathrm{L}}^{\pm}W_{\mathrm{L}}^{\pm}\text{-EW}$"
+        bg_label = r"$W_{\mathrm{L}}^{\pm}W_{\mathrm{T}}^{\pm}\text{-EW} + W_{\mathrm{T}}^{\pm}W_{\mathrm{T}}^{\pm}\text{-EW}$"
+    elif task_name == "PolState_LL_LT_vs_TT":
+        xlabel = r"ParT$_{\mathrm{pol}}$ Score"
+        sig_label = r"$W_{\mathrm{L}}^{\pm}W_{\mathrm{L}}^{\pm}\text{-EW} + W_{\mathrm{L}}^{\pm}W_{\mathrm{T}}^{\pm}\text{-EW}$"
+        bg_label = r"$W_{\mathrm{T}}^{\pm}W_{\mathrm{T}}^{\pm}\text{-EW}$"
+    else:
+        xlabel = f"ParT Score ({task_name})"
+        sig_label = "Signal"
+        bg_label = "Background"
+        
+    probs_bg = probs[labels == 0]
+    probs_sg = probs[labels == 1]
+    
+    bins = np.linspace(0.0, 1.0, 21)
+    
+    fig, ax = plt.subplots(figsize=(5, 4), constrained_layout=True)
+    
+    ax.hist(
+        probs_sg,
+        bins=bins,
+        range=(0, 1),
+        density=True,
+        histtype="step",
+        linewidth=2.0,
+        color="#E63928",
+        linestyle="solid",
+        label=sig_label
+    )
+    
+    ax.hist(
+        probs_bg,
+        bins=bins,
+        range=(0, 1),
+        density=True,
+        histtype="step",
+        linewidth=2.0,
+        color="#3378FF",
+        linestyle="dashed",
+        label=bg_label
+    )
+        
+    ax.set_xlim(0.0, 1.0)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel("Normalized events")
+    ax.tick_params(axis="both", which="major", direction="in", length=8, width=1.2, top=True, right=True)
+    ax.tick_params(axis="both", which="minor", direction="in", length=4, width=1.0, top=True, right=True)
+    ax.minorticks_on()
+    ax.legend(frameon=False)
+
+    fig.savefig(output_path, format="pdf")
+    print(f"Saved score distribution plot to {output_path}")
+    plt.close(fig)
+
