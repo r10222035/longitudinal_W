@@ -115,9 +115,9 @@ def train_single_fold(
     # Create model
     print("Creating ParT model...")
     if config.model_structure == "ParT_Light":
-        model = ParT_Light(num_channels=config.num_channels)
+        model = ParT_Light(num_channels=config.num_channels, pt_log_scale=config.pt_log_scale)
     elif config.model_structure == "ParT_Baseline":
-        model = ParT_Baseline(num_channels=config.num_channels)
+        model = ParT_Baseline(num_channels=config.num_channels, pt_log_scale=config.pt_log_scale)
     else:
         raise ValueError(f"Unknown model structure: {config.model_structure}")
         

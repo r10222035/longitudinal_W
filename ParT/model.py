@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.init as init
 
 
-def prepare_interaction(x: torch.Tensor) -> torch.Tensor:
+def prepare_interaction(x: torch.Tensor, pt_log_scale: bool = True) -> torch.Tensor:
     """Prepare the features for interaction matrix U.
 
     Args:
@@ -18,6 +18,9 @@ def prepare_interaction(x: torch.Tensor) -> torch.Tensor:
             Input tensor of shape (N, L, 3), where N is the batch size,
             L is the number of particles, and 3 is the feature dimension
             corresponding to (pt_rel, delta_eta, delta_phi).
+        pt_log_scale : bool
+            Whether the input pt is in log-scale. If True, it will be
+            exponentiated back to linear scale to compute physics quantities (kt, z).
     Returns:
         torch.Tensor
             Output tensor of shape (N, 3, L, L), where N is the batch size,
@@ -32,15 +35,23 @@ def prepare_interaction(x: torch.Tensor) -> torch.Tensor:
     pt_rel_i, delta_eta_i, delta_phi_i = torch.unbind(x_i, dim=-1)  # (N, L, 1)
     pt_rel_j, delta_eta_j, delta_phi_j = torch.unbind(x_j, dim=-1)  # (N, 1, L)
 
+    # Exponentiate back to linear scale if log scale is used for pt
+    if pt_log_scale:
+        pt_i = torch.exp(pt_rel_i)
+        pt_j = torch.exp(pt_rel_j)
+    else:
+        pt_i = pt_rel_i
+        pt_j = pt_rel_j
+
     # Calculate delta and mod delta_phi to [-pi, pi]
     delta_eta_diff = delta_eta_i - delta_eta_j
     delta_phi_diff = (delta_phi_i - delta_phi_j + np.pi) % (2 * np.pi) - np.pi
     delta = torch.sqrt(delta_eta_diff ** 2 + delta_phi_diff ** 2)  # (N, L, L)
 
-    # Calculate kt and z
-    pt_rel_min = torch.minimum(pt_rel_i, pt_rel_j)  # (N, L, L)
-    kt = pt_rel_min * delta  # (N, L, L)
-    z = pt_rel_min / torch.clamp(pt_rel_i + pt_rel_j, min=1e-12)  # (N, L, L)
+    # Calculate kt and z in linear scale
+    pt_min = torch.minimum(pt_i, pt_j)  # (N, L, L)
+    kt = pt_min * delta  # (N, L, L)
+    z = pt_min / torch.clamp(pt_i + pt_j, min=1e-12)  # (N, L, L)
 
     # Stack and clamp values to avoid numerical issues
     features = torch.stack([delta, kt, z], dim=-3)  # (N, 3, L, L)
@@ -129,6 +140,10 @@ class MultiheadAttention(nn.Module):
         # Scaled dot-product attention scores
         scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.head_dim)  # (N, H, L_q, L_k)
 
+        # Apply custom attention mask (e.g. interaction matrix U)
+        if attn_mask is not None:
+            scores = scores + attn_mask
+
         # Apply padding mask (True means mask out/ignore)
         if key_padding_mask is not None:
             # Expand key_padding_mask from (N, L_k) to (N, 1, 1, L_k)
@@ -138,10 +153,6 @@ class MultiheadAttention(nn.Module):
             # Mask out corresponding values
             v_mask = key_padding_mask.unsqueeze(1).unsqueeze(-1)  # (N, 1, L_k, 1)
             v = v.masked_fill(v_mask, 0.0)
-
-        # Apply custom attention mask (e.g. interaction matrix U)
-        if attn_mask is not None:
-            scores = scores + attn_mask
 
         # Softmax & dropout
         attn_weights = torch.softmax(scores, dim=-1)
@@ -252,6 +263,7 @@ class ParticleTransformer(nn.Module):
         super().__init__()
         self.score_dim = score_dim
         self.model_params = parameters
+        self.pt_log_scale = parameters.get('pt_log_scale', True)
 
         # Particle Feature Embedding
         self.par_embedding = ParticleFeatureEmbedding(
@@ -260,6 +272,13 @@ class ParticleTransformer(nn.Module):
         )
 
         atte_embed_dim = parameters['ParEmbed']['embed_dim'][-1]
+        num_heads = parameters['ParAtteBlock']['num_heads']
+
+        # Pairwise interaction embedding mapping (N, 3, L, L) -> (N, num_heads, L, L)
+        self.inter_embedding = InteractionMatrixEmbedding(
+            input_dim=3,
+            embedding_dims=[64, 64, num_heads]
+        )
 
         # Particle Attention Blocks
         self.par_atte_blocks = nn.ModuleList([
@@ -301,12 +320,17 @@ class ParticleTransformer(nn.Module):
         # Fill NaN values with zeros for the numerical operations
         x = torch.where(key_padding_mask.unsqueeze(-1), torch.zeros_like(x), x)
 
+        # Extract coordinate features (pt, eta, phi) for pairwise interaction
+        coords = x[..., :3].clone()
+        u = prepare_interaction(coords, pt_log_scale=self.pt_log_scale)  # (N, 3, L, L)
+        attn_mask = self.inter_embedding(u)  # (N, num_heads, L, L)
+
         # Particle Embedding
         x = self.par_embedding(x)  # (N, L, E)
 
-        # Particle Self-Attention blocks
+        # Particle Self-Attention blocks (passing attn_mask)
         for block in self.par_atte_blocks:
-            x = block(x, x_clt=None, attn_mask=None, key_padding_mask=key_padding_mask)
+            x = block(x, x_clt=None, attn_mask=attn_mask, key_padding_mask=key_padding_mask)
 
         # Class Attention blocks
         class_token = self.class_token.expand(batch_size, -1, -1)  # (N, 1, E)
@@ -324,8 +348,9 @@ class ParticleTransformer(nn.Module):
 class ParT_Baseline(ParticleTransformer):
     """Baseline Particle Transformer config."""
 
-    def __init__(self, num_channels: int = 3):
+    def __init__(self, num_channels: int = 3, pt_log_scale: bool = True):
         hyperparameters = {
+            "pt_log_scale": pt_log_scale,
             "ParEmbed": {
                 "input_dim": 3 + num_channels,  # (pt, eta, phi_rel) + type one-hot
                 "embed_dim": [64, 512, 64]
@@ -349,8 +374,9 @@ class ParT_Baseline(ParticleTransformer):
 class ParT_Light(ParticleTransformer):
     """Lightweight Particle Transformer config."""
 
-    def __init__(self, num_channels: int = 3):
+    def __init__(self, num_channels: int = 3, pt_log_scale: bool = True):
         hyperparameters = {
+            "pt_log_scale": pt_log_scale,
             "ParEmbed": {
                 "input_dim": 3 + num_channels,  # (pt, eta, phi_rel) + type one-hot
                 "embed_dim": [64, 256, 64]

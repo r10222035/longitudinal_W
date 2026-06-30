@@ -181,7 +181,11 @@ class ParTFoldDataset(Dataset):
                 n_to_fill = len(idx)
                 features[i, :n_to_fill, 0] = evt_pts[idx]
                 features[i, :n_to_fill, 1] = evt_etas[idx]
-                features[i, :n_to_fill, 2] = evt_phis[idx]
+                if n_to_fill > 0:
+                    lead_phi = evt_phis[idx[0]]
+                    features[i, :n_to_fill, 2] = (evt_phis[idx] - lead_phi + np.pi) % (2 * np.pi) - np.pi
+                else:
+                    features[i, :n_to_fill, 2] = evt_phis[idx]
                 features[i, :n_to_fill, 3] = (idx < n_tr).astype(np.float32)
                 features[i, :n_to_fill, 4] = (idx >= n_tr).astype(np.float32)
                 

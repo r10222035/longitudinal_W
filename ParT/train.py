@@ -52,9 +52,19 @@ class Trainer:
         self.device = device
         self.max_epochs = max_epochs
         self.early_stopping_patience = early_stopping_patience
+        self.learning_rate = learning_rate
         
         # Optimizer
         self.optimizer = Adam(self.model.parameters(), lr=learning_rate)
+        
+        # Warmup and LR Scheduler
+        self.warmup_epochs = 5
+        self.warmup_start_lr = 1e-6
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            self.optimizer, 
+            T_max=max_epochs - self.warmup_epochs, 
+            eta_min=1e-6
+        )
         
         # Checkpoint directory
         Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
@@ -104,6 +114,10 @@ class Trainer:
             # Backward pass
             self.optimizer.zero_grad()
             loss.backward()
+            
+            # Gradient clipping to stabilize Transformer training
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+            
             self.optimizer.step()
             
             # Accumulate global weighted loss and weight sum for tracking
@@ -259,12 +273,22 @@ class Trainer:
         print(f"Early stopping patience: {self.early_stopping_patience} epochs\n")
         
         for epoch in range(self.max_epochs):
+            # Apply linear warmup if in warmup epochs
+            if epoch < self.warmup_epochs:
+                lr = self.warmup_start_lr + (self.learning_rate - self.warmup_start_lr) * (epoch / self.warmup_epochs)
+                for param_group in self.optimizer.param_groups:
+                    param_group['lr'] = lr
+                    
             # Train
             train_loss, train_auc = self.train_epoch()
             
             # Validate
             val_loss, val_auc = self.validate()
             
+            # Step scheduler if warmup is finished
+            if epoch >= self.warmup_epochs:
+                self.scheduler.step()
+                
             # Store history
             self.history["train_loss"].append(train_loss)
             self.history["train_roc_auc"].append(train_auc)
@@ -273,8 +297,10 @@ class Trainer:
             
             # Print progress every 10 epochs or at the first epoch
             if epoch == 0 or (epoch + 1) % 10 == 0:
+                current_lr = self.optimizer.param_groups[0]['lr']
                 print(
                     f"Epoch {epoch+1:3d} | "
+                    f"LR: {current_lr:.2e} | "
                     f"Train Loss: {train_loss:.6f} AUC: {train_auc:.6f} | "
                     f"Val Loss: {val_loss:.6f} AUC: {val_auc:.6f}"
                 )
