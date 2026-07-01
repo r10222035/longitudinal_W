@@ -23,5 +23,6 @@ DNN/configs/
 */results/
 
 .vscode
+.agents
 
 scripts/
