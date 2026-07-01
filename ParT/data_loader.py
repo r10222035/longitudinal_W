@@ -56,6 +56,9 @@ class ParTFoldDataset(Dataset):
         weight_strategy: str = "hybrid",
         pt_log_scale: bool = True,
         max_particles: int = 128,
+        num_channels: int = 2,
+        clean_duplicates: bool = True,
+        use_met: bool = False,
     ):
         assert i_fold in range(5), f"i_fold must be 0-4, got {i_fold}"
         assert fold_type in ["train", "val", "test"], \
@@ -68,9 +71,25 @@ class ParTFoldDataset(Dataset):
         self.weight_strategy = weight_strategy
         self.pt_log_scale = pt_log_scale
         self.max_particles = max_particles
+        self.clean_duplicates = clean_duplicates
+        self.use_met = use_met
+        self.raw_num_channels = num_channels
+
+        # Adjust num_channels if MET is included as a pseudo-particle
+        if use_met:
+            if num_channels == 4:
+                self.num_channels = 5
+            elif num_channels == 5:
+                self.num_channels = 6
+            elif num_channels == 9:
+                self.num_channels = 11
+            else:
+                self.num_channels = num_channels + 2
+        else:
+            self.num_channels = num_channels
 
         # Check if features are already loaded and processed in global cache
-        cache_key = (process_name, pt_log_scale, max_particles)
+        cache_key = (process_name, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met)
         
         if cache_key not in _GLOBAL_DATA_CACHE:
             print(f"Loading Parquet files for process '{process_name}' (First time, caching)...")
@@ -123,16 +142,141 @@ class ParTFoldDataset(Dataset):
     def reconstruct_sequence(self, df: pd.DataFrame, pt_log_scale: bool) -> np.ndarray:
         """Reconstruct event features from pandas DataFrame into sequence format.
         
-        Supports both low-level (Track & Tower) features and high-level reconstructed variables.
+        Supports low-level (Track & Tower), refined (Track, Tower, Electron, Muon) and high-level features.
         """
         N = len(df)
         
+        # Check if dataset contains refined constituent columns
+        is_refined = "part_pt" in df.columns
         # Check if dataset contains low-level constituent columns
         is_low_level = "track_pt" in df.columns and "tower_et" in df.columns
         
-        if is_low_level:
+        if is_refined:
             max_particles = getattr(self, "max_particles", 128)
-            features = np.full((N, max_particles, 5), np.nan, dtype=np.float32)
+            num_channels = getattr(self, "num_channels", 4)
+            raw_num_channels = getattr(self, "raw_num_channels", num_channels)
+            clean_duplicates = getattr(self, "clean_duplicates", True)
+            use_met = getattr(self, "use_met", False)
+            
+            features = np.full((N, max_particles, 3 + num_channels), np.nan, dtype=np.float32)
+            
+            raw_pts = df["part_pt"].values
+            raw_etas = df["part_eta"].values
+            raw_phis = df["part_phi"].values
+            raw_types = df["part_type"].values
+            raw_tags = df["part_tag"].values if "part_tag" in df.columns else None
+            
+            if use_met:
+                raw_met_et = df["met_et"].values
+                raw_met_phi = df["met_phi"].values
+            
+            for i in range(N):
+                p_pt = np.array(raw_pts[i], dtype=np.float32)
+                n_p = len(p_pt)
+                if n_p == 0 and not use_met:
+                    continue
+                    
+                p_eta = np.array(raw_etas[i], dtype=np.float32)
+                p_phi = np.array(raw_phis[i], dtype=np.float32)
+                p_type = np.array(raw_types[i], dtype=np.int32)
+                p_tag = np.array(raw_tags[i], dtype=np.int32) if raw_tags is not None else np.zeros(n_p, dtype=np.int32)
+                
+                keep_mask = np.ones(n_p, dtype=bool)
+                
+                if clean_duplicates and n_p > 0:
+                    lep_mask = (p_tag == 0) | (p_tag == 1) | (p_type == 2) | (p_type == 3)
+                    lep_indices = np.where(lep_mask)[0]
+                    other_indices = np.where(~lep_mask)[0]
+                    
+                    for l_idx in lep_indices:
+                        l_eta, l_phi = p_eta[l_idx], p_phi[l_idx]
+                        deta = p_eta[other_indices] - l_eta
+                        dphi = p_phi[other_indices] - l_phi
+                        dphi = (dphi + np.pi) % (2 * np.pi) - np.pi
+                        dr2 = deta**2 + dphi**2
+                        
+                        # dr < 0.05 (dr2 < 0.0025)
+                        discard_indices = other_indices[dr2 < 0.0025]
+                        keep_mask[discard_indices] = False
+                        
+                filtered_pt = p_pt[keep_mask]
+                filtered_eta = p_eta[keep_mask]
+                filtered_phi = p_phi[keep_mask]
+                filtered_type = p_type[keep_mask]
+                filtered_tag = p_tag[keep_mask]
+                
+                n_filtered = len(filtered_pt)
+                if use_met:
+                    n_to_fill = min(n_filtered, max_particles - 1)
+                else:
+                    n_to_fill = min(n_filtered, max_particles)
+                
+                if n_to_fill > 0:
+                    if pt_log_scale:
+                        features[i, :n_to_fill, 0] = np.log(np.maximum(filtered_pt[:n_to_fill], 1e-3))
+                    else:
+                        features[i, :n_to_fill, 0] = filtered_pt[:n_to_fill]
+                        
+                    features[i, :n_to_fill, 1] = filtered_eta[:n_to_fill]
+                    
+                    lead_phi = filtered_phi[0]
+                    features[i, :n_to_fill, 2] = (filtered_phi[:n_to_fill] - lead_phi + np.pi) % (2 * np.pi) - np.pi
+                    
+                    # Fill one-hot encodings based on raw channel configurations
+                    if raw_num_channels == 4:
+                        for c in range(4):
+                            features[i, :n_to_fill, 3 + c] = (filtered_type[:n_to_fill] == c).astype(np.float32)
+                    elif raw_num_channels == 5:
+                        for t in range(5):
+                            features[i, :n_to_fill, 3 + t] = (filtered_tag[:n_to_fill] == t).astype(np.float32)
+                    elif raw_num_channels == 9:
+                        if use_met:
+                            for c in range(4):
+                                features[i, :n_to_fill, 3 + c] = (filtered_type[:n_to_fill] == c).astype(np.float32)
+                            for t in range(5):
+                                features[i, :n_to_fill, 8 + t] = (filtered_tag[:n_to_fill] == t).astype(np.float32)
+                        else:
+                            for c in range(4):
+                                features[i, :n_to_fill, 3 + c] = (filtered_type[:n_to_fill] == c).astype(np.float32)
+                            for t in range(5):
+                                features[i, :n_to_fill, 7 + t] = (filtered_tag[:n_to_fill] == t).astype(np.float32)
+                    else:
+                        for c in range(min(raw_num_channels, 4)):
+                            features[i, :n_to_fill, 3 + c] = (filtered_type[:n_to_fill] == c).astype(np.float32)
+                        if raw_num_channels > 4:
+                            for t in range(min(raw_num_channels - 4, 5)):
+                                features[i, :n_to_fill, 7 + t] = (filtered_tag[:n_to_fill] == t).astype(np.float32)
+
+                # Fill MET as pseudo-particle
+                if use_met:
+                    met_idx = n_to_fill
+                    met_pt = raw_met_et[i]
+                    met_phi = raw_met_phi[i]
+                    lead_phi = filtered_phi[0] if n_filtered > 0 else 0.0
+                    
+                    if pt_log_scale:
+                        features[i, met_idx, 0] = np.log(np.maximum(met_pt, 1e-3))
+                    else:
+                        features[i, met_idx, 0] = met_pt
+                    features[i, met_idx, 1] = 0.0
+                    features[i, met_idx, 2] = (met_phi - lead_phi + np.pi) % (2 * np.pi) - np.pi
+                    
+                    # Zero-out the channels, then set the active MET channel
+                    features[i, met_idx, 3:] = 0.0
+                    if raw_num_channels == 4:
+                        features[i, met_idx, 3 + 4] = 1.0 # type=4 (MET)
+                    elif raw_num_channels == 5:
+                        features[i, met_idx, 3 + 5] = 1.0 # tag=5 (MET)
+                    elif raw_num_channels == 9:
+                        features[i, met_idx, 3 + 4] = 1.0 # type=4 (MET)
+                        features[i, met_idx, 8 + 5] = 1.0 # tag=5 (MET)
+                        
+            return features
+            
+        elif is_low_level:
+            max_particles = getattr(self, "max_particles", 128)
+            num_channels = getattr(self, "num_channels", 2)
+            features = np.full((N, max_particles, 3 + num_channels), np.nan, dtype=np.float32)
             
             # Read columns
             raw_track_pts = df["track_pt"].values
@@ -256,8 +400,7 @@ class ParTFoldDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int, float, int]:
         """Returns:
-
-            features: torch.Tensor of shape (5, 6)
+            features: torch.Tensor of shape (max_particles, 3 + num_channels)
             label: 0 or 1
             weight: process weight for this event
             event_number: row index
@@ -278,6 +421,9 @@ def create_fold_datasets(
     pt_log_scale: bool = True,
     balance_weights: bool = True,
     max_particles: int = 128,
+    num_channels: int = 2,
+    clean_duplicates: bool = True,
+    use_met: bool = False,
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """Create train, validation, and test datasets for a given fold."""
     # Get all Parquet files by process
@@ -297,13 +443,13 @@ def create_fold_datasets(
             continue
 
         train_ds = ParTFoldDataset(
-            file_paths, process_name, i_fold, "train", task, weight_strategy, pt_log_scale, max_particles
+            file_paths, process_name, i_fold, "train", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met
         )
         val_ds = ParTFoldDataset(
-            file_paths, process_name, i_fold, "val", task, weight_strategy, pt_log_scale, max_particles
+            file_paths, process_name, i_fold, "val", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met
         )
         test_ds = ParTFoldDataset(
-            file_paths, process_name, i_fold, "test", task, weight_strategy, pt_log_scale, max_particles
+            file_paths, process_name, i_fold, "test", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met
         )
 
         train_datasets.append(train_ds)
@@ -340,10 +486,13 @@ def create_fold_loaders(
     pin_memory: bool = True,
     balance_weights: bool = True,
     max_particles: int = 128,
+    num_channels: int = 2,
+    clean_duplicates: bool = True,
+    use_met: bool = False,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """Create PyTorch DataLoaders for train, validation, and test splits."""
     train_ds, val_ds, test_ds = create_fold_datasets(
-        parquet_dir, i_fold, task, weight_strategy, pt_log_scale, balance_weights, max_particles
+        parquet_dir, i_fold, task, weight_strategy, pt_log_scale, balance_weights, max_particles, num_channels, clean_duplicates, use_met
     )
 
     train_loader = DataLoader(

@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Tuple, Dict, Optional, List
 import json
+import time
 
 import numpy as np
 import torch
@@ -253,10 +254,13 @@ class Trainer:
         
         return probs, all_labels, all_weights
 
-    def save_checkpoint(self, checkpoint_path: str) -> None:
+    def save_checkpoint(self, checkpoint_path: str, epoch: Optional[int] = None) -> None:
         """Save model checkpoint."""
         torch.save(self.model.state_dict(), checkpoint_path)
-        print(f"Saved checkpoint to {checkpoint_path}")
+        if epoch is not None:
+            print(f"Saved checkpoint to {checkpoint_path} (Epoch {epoch + 1})")
+        else:
+            print(f"Saved checkpoint to {checkpoint_path}")
 
     def load_checkpoint(self, checkpoint_path: str) -> None:
         """Load model checkpoint."""
@@ -271,6 +275,8 @@ class Trainer:
         """
         print(f"Starting training for {self.max_epochs} epochs...")
         print(f"Early stopping patience: {self.early_stopping_patience} epochs\n")
+        
+        t_start = time.time()
         
         for epoch in range(self.max_epochs):
             # Apply linear warmup if in warmup epochs
@@ -311,7 +317,7 @@ class Trainer:
                 self.epochs_without_improvement = 0
                 
                 # Save best checkpoint
-                self.save_checkpoint(self.best_checkpoint_path)
+                self.save_checkpoint(self.best_checkpoint_path, epoch=epoch)
             else:
                 self.epochs_without_improvement += 1
                 
@@ -321,6 +327,9 @@ class Trainer:
                         f"No improvement for {self.early_stopping_patience} epochs."
                     )
                     break
+        
+        t_end = time.time()
+        self.history["duration_seconds"] = t_end - t_start
         
         # Load best model
         self.load_checkpoint(self.best_checkpoint_path)

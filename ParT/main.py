@@ -82,6 +82,8 @@ def train_single_fold(
     device: torch.device,
 ) -> Dict:
     """Train and evaluate ParT model for a single fold."""
+    t_fold_start = time.time()
+    
     print(f"\n{'='*70}")
     print(f"FOLD {i_fold} / 5")
     print(f"{'='*70}\n")
@@ -104,8 +106,19 @@ def train_single_fold(
         pin_memory=config.pin_memory,
         balance_weights=config.balance_signal_background_weights,
         max_particles=getattr(config, "max_particles", 128),
+        num_channels=config.num_channels,
+        clean_duplicates=getattr(config, "clean_duplicates", True),
+        use_met=getattr(config, "use_met", False),
     )
     
+    # Determine model input channels dynamically from the dataset
+    if hasattr(train_loader.dataset, "datasets") and len(train_loader.dataset.datasets) > 0:
+        model_num_channels = train_loader.dataset.datasets[0].num_channels
+    elif hasattr(train_loader.dataset, "num_channels"):
+        model_num_channels = train_loader.dataset.num_channels
+    else:
+        model_num_channels = config.num_channels
+
     print(
         f"Train: {len(train_loader.dataset)} samples | "
         f"Val: {len(val_loader.dataset)} samples | "
@@ -115,15 +128,15 @@ def train_single_fold(
     # Create model
     print("Creating ParT model...")
     if config.model_structure == "ParT_Light":
-        model = ParT_Light(num_channels=config.num_channels, pt_log_scale=config.pt_log_scale)
+        model = ParT_Light(num_channels=model_num_channels, pt_log_scale=config.pt_log_scale)
     elif config.model_structure == "ParT_Baseline":
-        model = ParT_Baseline(num_channels=config.num_channels, pt_log_scale=config.pt_log_scale)
+        model = ParT_Baseline(num_channels=model_num_channels, pt_log_scale=config.pt_log_scale)
     else:
         raise ValueError(f"Unknown model structure: {config.model_structure}")
         
     print(f"Model architecture:")
     print(f"  - Model Type: {config.model_structure}")
-    print(f"  - Input channels (types): {config.num_channels}")
+    print(f"  - Input channels (types): {model_num_channels}")
     print(f"  - pt_log_scale: {config.pt_log_scale}\n")
     
     # Train model
@@ -169,6 +182,7 @@ def train_single_fold(
         "best_val_roc_auc": trainer.best_val_auc,
         "test_roc_auc": history["test_roc_auc"],
         "output_dir": str(fold_output_dir),
+        "duration_seconds": time.time() - t_fold_start,
         "data_size": {
             "train": get_dataset_sizes(train_loader.dataset, config),
             "val": get_dataset_sizes(val_loader.dataset, config),
@@ -205,7 +219,8 @@ def run_cross_validation(config: ParTTrainingConfig, device: torch.device) -> No
     # Train each fold
     all_results = []
     
-    for i_fold in range(5):
+    folds_to_run = [config.fold] if getattr(config, "fold", None) is not None else list(range(5))
+    for i_fold in folds_to_run:
         fold_results = train_single_fold(i_fold, config, device)
         all_results.append(fold_results)
     
@@ -286,7 +301,7 @@ def run_cross_validation(config: ParTTrainingConfig, device: torch.device) -> No
     # Save summary
     summary = {
         "task": config.task,
-        "n_folds": 5,
+        "n_folds": len(folds_to_run),
         "time_info": time_info,
         "data_size": data_size_summary,
         "config": config.to_dict(),
@@ -300,7 +315,9 @@ def run_cross_validation(config: ParTTrainingConfig, device: torch.device) -> No
     }
     
     summary_path = Path(config.output_dir) / "cv_summary.json"
-    save_metrics_json(summary, str(summary_path))
+    import json as json_lib
+    with open(summary_path, "w", encoding="utf-8") as f:
+        json_lib.dump(summary, f, indent=2)
     
     print(f"Summary saved to {summary_path}\n")
 
@@ -352,6 +369,12 @@ def main():
         default=None,
         help="Override maximum number of training epochs",
     )
+    parser.add_argument(
+        "--fold",
+        type=int,
+        default=None,
+        help="Train only a single fold (e.g. 0)"
+    )
 
     args = parser.parse_args()
 
@@ -363,6 +386,7 @@ def main():
             "seed": args.seed,
             "weight_strategy": args.weight_strategy,
             "max_epochs": args.epochs,
+            "fold": args.fold,
         },
     )
 
