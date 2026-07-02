@@ -1548,7 +1548,7 @@
             \label{fig:constituent_multiplicity}
         \end{figure}
 
-        Figure~\ref{fig:constituent_multiplicity} also presents the distributions for EW $W^\pm W^\pm$ with different polarizations. The figure demonstrates similar constituent multiplicities in LL, LT, and TT processes. This shows a reason why the ParT with low-level inputs didn't outperform the high-level case, since the NN can not simply use the multiplicity to distinguish them.
+        Figure~\ref{fig:constituent_multiplicity_polarization} also presents the distributions for EW $W^\pm W^\pm$ with different polarizations. The figure demonstrates similar constituent multiplicities in LL, LT, and TT processes. This shows a reason why the ParT with low-level inputs didn't outperform the high-level case, since the NN can not simply use the multiplicity to distinguish them.
         \begin{figure}[htbp]
             \centering
             \subfloat[Number of tracks]{
@@ -1558,7 +1558,7 @@
                 \includegraphics[width=0.45\textwidth]{n_towers_dist_polarization.pdf}
             }
             \caption{Distributions of the number of tracks and calorimeter towers for the electroweak $W^\pm W^\pm$ LL, LT, and TT processes.}
-            \label{fig:constituent_multiplicity}
+            \label{fig:constituent_multiplicity_polarization}
         \end{figure}
 
     % subsection part_performance_comparison (end)
@@ -1593,6 +1593,45 @@
         The training, validation, and testing splits follow a deterministic 5-fold cross-validation scheme matching the Dense-NN setup.
 
     % subsection training_hyperparameters (end)
+
+	\subsection{Refined Low-Level Features}% (fold)
+	\label{sub:refined_low_level_features}
+
+        Since the original low-level configuration did not yield better results for the polarization separation tasks (LL vs. TX and LX vs. TT), we investigate refined low-level input feature configurations. Here, we focus on expanding the one-hot encoding representation by dividing the constituent properties into tag and type categories:
+        \begin{itemize}
+            \item \textbf{Tag Features (4 channels):} Identifies the parent object associations of the constituent: \texttt{Jet1}, \texttt{Jet2}, \texttt{lepton1}, or \texttt{lepton2}.
+            \item \textbf{Type Features (5 channels):} Identifies the detector reconstruction type of the constituent: \texttt{Track}, \texttt{Tower}, \texttt{Electron}, \texttt{Muon}, or \texttt{others}.
+        \end{itemize}
+        Combining both tag and type categories yields a 9-dimensional one-hot encoding vector. Together with the 3 coordinate features ($p_{\text{T}}$, $\eta$, $\phi$), the total input feature dimension per constituent is expanded to 12.
+
+        To identify which components provide the most significant classification improvement, we compare the training performance across different input settings:
+        \begin{enumerate}
+            \item The original low-level configuration (2 channels).
+            \item The combined tag and type configuration (9 channels).
+            \item The tag-only configuration (4 channels).
+            \item The type-only configuration (5 channels).
+        \end{enumerate}
+
+        Table~\ref{tab:refined_low_level_comparison} summarizes the test AUC results for these configurations across the three training tasks.
+
+        \begin{table}[htbp]
+            \centering
+            \caption{Comparison of the final test AUC scores for the ParT utilizing different low-level input configurations. The first row lists the baseline original low-level configuration (2 channels), while the subsequent rows present the 9-channel, 4-channel (Tag), and 5-channel (Type) configurations.}
+            \label{tab:refined_low_level_comparison}
+            \begin{tabular}{l|ccc}
+                \hline
+                \hline
+                Input Configuration & EW $W^\pm W^\pm$ vs. Bkg & LL vs. TX         & LX vs. TT         \\ \hline
+                Track \& Tower      & $0.933 \pm 0.016$        & $0.819 \pm 0.001$ & $0.763 \pm 0.003$ \\
+                Tag \& Type         & $0.9433$                 & $0.8253$          & $0.7710$          \\
+                Tag Only            & $0.9314$                 & $0.8242$          & $0.7692$          \\
+                Type Only           & $0.9458$                 & $0.8270$          & $0.7706$          \\
+                \hline
+                \hline
+            \end{tabular}
+        \end{table}
+
+	% subsection refined_low_level_features (end)
 
 % section particle_transformer (end)
 
