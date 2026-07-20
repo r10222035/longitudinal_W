@@ -1460,10 +1460,149 @@
 
     As a next step to enhance the classification performance, we explore advanced neural network architectures. First, we investigate the Particle Transformer (ParT)~\cite{Qu:2022mxj}.
 
-    To evaluate the potential of ParT in VBS polarization studies, we test two distinct input feature sets: a high-level representation based on reconstructed physics objects and a low-level representation based on detector-level constituents.
+
+    \subsection{Model Architecture and Mathematical Details}% (fold)
+    \label{sub:model_architecture_and_mathematical_details}
+
+        The ParT architecture is designed for jet tagging. By representing the jet as a permutation-invariant particle cloud, the model avoids positional encodings. The core mathematical formulation and the structural design of the model are detailed below.
+
+        \subsubsection{High-Level Architecture Overview}
+
+            The global data flow of the ParT is illustrated in Figure~\ref{fig:part_architecture_flow}. The model processes two parallel branches of inputs: the particle features and the pairwise physical interaction features, which are then passed through the attention blocks to produce classification scores.
+
+            \begin{figure}[htbp]
+                \centering
+                \begin{tikzpicture}[
+                    node distance=1.2cm and 2.0cm,
+                    box/.style={draw, rectangle, minimum width=2.8cm, minimum height=0.8cm, align=center, thick, fill=blue!10},
+                    block/.style={draw, rectangle, minimum width=3.2cm, minimum height=1.0cm, align=center, thick, fill=orange!10, rounded corners},
+                    input/.style={draw, ellipse, minimum width=2.2cm, minimum height=0.8cm, align=center, thick, fill=green!10},
+                    arrow/.style={-Latex, thick}
+                ]
+                    % Inputs
+                    \node[input] (part_in) {Particles \\ $X \in \mathbb{R}^{N \times C}$};
+                    \node[input, right=of part_in] (inter_in) {Interactions \\ $U_{\text{in}} \in \mathbb{R}^{N \times N \times C'}$};
+                    
+                    % Embedding layers
+                    \node[box, below=of part_in] (part_emb) {Particle Embedding \\ MLP: (128, 512, 128)};
+                    \node[box, below=of inter_in] (inter_emb) {Interaction Embedding \\ 1D Conv: (64, 64, 64, 8)};
+                    
+                    % Particle Attention Blocks (L blocks)
+                    \node[block, below=1.8cm of part_emb] (part_att) {Particle Attention Blocks \\ ($L$ layers of P-MHA \& FFN)};
+                    
+                    % Class Attention Blocks
+                    \node[block, below=1.8cm of part_att] (class_att) {Class Attention Blocks \\ (2 layers of Cross-MHA)};
+                    \node[input, left=of class_att] (class_tok) {Class Token \\ $x_{\text{class}} \in \mathbb{R}^{1 \times d}$};
+                    
+                    % Output classifier
+                    \node[box, below=of class_att] (mlp) {MLP \& Softmax};
+                    \node[input, below=of mlp] (out) {Classification \\ Scores};
+                    
+                    % Connections
+                    \draw[arrow] (part_in) -- (part_emb);
+                    \draw[arrow] (inter_in) -- (inter_emb);
+                    \draw[arrow] (part_emb) -- node[left] {$x^0 \in \mathbb{R}^{N \times d}$} (part_att);
+                    \draw[arrow] (inter_emb) |- node[above, pos=0.75] {$U \in \mathbb{R}^{N \times N \times d'}$} (part_att);
+                    \draw[arrow] (part_att) -- node[left] {$x^L \in \mathbb{R}^{N \times d}$} (class_att);
+                    \draw[arrow] (class_tok) -- (class_att);
+                    \draw[arrow] (class_att) -- node[left] {$x_{\text{class}}^{\text{final}}$} (mlp);
+                    \draw[arrow] (mlp) -- (out);
+                    
+                \end{tikzpicture}
+                \caption{Data flow and high-level architecture of Particle Transformer (ParT).}
+                \label{fig:part_architecture_flow}
+            \end{figure}
+
+            The processing pipeline consists of the following components:
+            \begin{itemize}
+                \item \textbf{Input Embedding:} The input particle feature $X$ is mapped to $x^0 \in \mathbb{R}^{N \times d}$ via a 3-layer MLP. Simultaneously, the pairwise physical interaction feature $U_{\text{in}}$ is mapped to $U \in \mathbb{R}^{N \times N \times d'}$ using a 4-layer Pointwise 1D Convolution.
+                \item \textbf{Particle Attention Blocks:} $x^0$ passes through $L$ blocks. Within each block, the interaction tensor $U$ acts as an attention bias in the Particle Multi-Head Attention (P-MHA) mechanism.
+                \item \textbf{Class Attention Blocks:} A learnable class token $x_{\text{class}}$ queries the final particle representation $x^L$ through cross-attention to aggregate event-level information (Section~\ref{sub:class_token_info}).
+                \item \textbf{Classifier Head:} The aggregated class token is passed through a final MLP and a Softmax function to yield the classification probabilities.
+            \end{itemize}
+
+        \subsubsection{Input and Attention Mechanism}
+        
+            Let the input sequence of $N$ particles be represented by $X \in \mathbb{R}^{N \times d}$, where $d$ is the input feature dimension. Let $U \in \mathbb{R}^{N \times N \times d'}$ represent the pairwise physical interaction features calculated between each pair of particles.
+            
+            The input feature $X$ is projected into the attention space using projection matrices:
+            \begin{equation} \label{eq:projection_qkv}
+                Q = X W_q, \quad K = X W_k, \quad V = X W_v,
+            \end{equation}
+            where $W_q, W_k, W_v \in \mathbb{R}^{d \times d_{\text{attn}}}$. In general, the projection matrices do not need to be square matrices, but we would set $d = d_{\text{attn}}$ for simplicity. 
+            
+            For a multi-head attention mechanism with $H$ heads, the projection matrices are split column-wise into $H$ submatrices:
+            \begin{equation}
+                W = \left[ W^{(1)}, W^{(2)}, \dots, W^{(H)} \right],
+            \end{equation}
+            where each submatrix $W^{(h)} \in \mathbb{R}^{d \times d_k}$ is rectangular, with $d_k = d_{\text{attn}}/H$ representing the feature dimension of each head.
+
+        \subsubsection{Particle Multi-Head Attention (P-MHA)}
+
+            For each head $h \in \{1, 2, \dots, H\}$, the query, key, and value vectors are computed as:
+            \begin{equation}
+                Q_h = X W_q^{(h)}, \quad K_h = X W_k^{(h)}, \quad V_h = X W_v^{(h)},
+            \end{equation}
+            where $Q_h, K_h \in \mathbb{R}^{N \times d_k}$ and $V_h \in \mathbb{R}^{N \times d_v}$. The attention score matrix $S_h \in \mathbb{R}^{N \times N}$ for head $h$ is given by:
+            \begin{equation}
+                \label{eq:p_mha_score}
+                S_h = \frac{Q_h K_h^{\text{T}}}{\sqrt{d_k}} + U_h
+            \end{equation}
+            where $U_h \in \mathbb{R}^{N \times N}$ is the $h$-th channel of the projected interaction matrix $U \in \mathbb{R}^{N \times N \times d'}$. This addition imposes a constraint that the number of interaction channels $d'$ must equal the number of attention heads $H$.
+            
+            The scaling factor $1/\sqrt{d_k}$ is essential to control the variance of the dot product. Assuming the elements of $q_i, k_j \in \mathbb{R}^{d_k}$ are independent random variables with mean 0 and variance 1, the variance of their dot product is $\text{Var}(q_i \cdot k_j) = d_k$. Without scaling, a large $d_k$ would result in extreme attention scores, pushing the Softmax function into the saturation region. Scaling ensures the input to the Softmax function has a unit variance:
+            \begin{equation}
+                \text{Var}\left( \frac{q_i \cdot k_j}{\sqrt{d_k}} \right) = 1.
+            \end{equation}
+            
+            The output of head $h$, $O_h \in \mathbb{R}^{N \times d_v}$, is calculated as:
+            \begin{equation}
+                O_h = \text{Softmax}(S_h) V_h.
+            \end{equation}
+            Note that in general, $d_k$ is not required to equal $d_v$. 
+
+        \subsubsection{Concatenation, Output Projection, and Residual Connection}
+
+            The outputs from all $H$ heads are concatenated along the feature dimension:
+            \begin{equation}
+                O_{\text{concat}} = \left[ O_1, O_2, \dots, O_H \right] \in \mathbb{R}^{N \times (H \cdot d_v)}.
+            \end{equation}
+            A final projection matrix $W_o \in \mathbb{R}^{(H \cdot d_v) \times d_{\text{out}}}$ is applied:
+            \begin{equation}
+                \text{Output} = O_{\text{concat}} W_o \in \mathbb{R}^{N \times d_{\text{out}}}.
+            \end{equation}
+            To support the residual connection, we set the output dimension to match the input dimension ($d_{\text{out}} = d$), allowing the addition:
+            \begin{equation}
+                X_{\text{out}} = \text{LayerNorm}\left( \text{Output} \right) + X_{\text{in}}.
+            \end{equation}
+            The constraints $d = d_{\text{attn}}$ and $d_k = d_v$ are not mathematical necessities, but rather simplifications adopted in standard implementations.
+
+        \subsubsection{Class Token and Information Aggregation}
+        \label{sub:class_token_info}
+
+            At the end of the particle attention blocks, a learnable global class token $x_{\text{class}} \in \mathbb{R}^{1 \times d}$ is introduced. The class token acts as a query in cross-attention to aggregate information from all particles:
+            \begin{align}
+                \label{eq:class_token_qkv}
+                Q_{\text{class}} &= x_{\text{class}} W_q, \\
+                K_{\text{class}} &= z W_k, \quad V_{\text{class}} = z W_v,
+            \end{align}
+            where $z = [x_{\text{class}}; X_{\text{particles}}] \in \mathbb{R}^{(1+N) \times d}$. 
+            
+            This design offers significant advantages:
+            \begin{itemize}
+                \item \textbf{Dynamic Aggregation:} Unlike static flat projections, the class token dynamically determines which particles to focus on based on context.
+                \item \textbf{Permutation Invariance:} The cross-attention mechanism is permutation invariant, ensuring that the ordering of the constituents does not affect the classification result.
+                \item \textbf{Variable Sequence Length:} Since the attention matrix size scales with the number of particles $N$, the output shape of the class token remains constant ($1 \times d$) regardless of $N$, naturally accommodating events with varying numbers of constituents.
+            \end{itemize}
+            
+            The final class token is extracted and fed into a multi-layer perceptron for classification.
+
+    % subsection model_architecture_and_mathematical_details (end)
 
     \subsection{Input Feature Sets}% (fold)
     \label{sub:part_input_features}
+
+        To evaluate the potential of ParT in VBS polarization studies, we test two distinct input feature sets: a high-level representation based on reconstructed physics objects and a low-level representation based on detector-level constituents.
 
         \begin{itemize}
             \item \textbf{High-Level Feature Set (6 features per object):} The inputs are constructed from the main reconstructed physics objects in the signal region: the $2$ leptons, the $2$ tagging jets, and the missing transverse energy (MET), forming a sequence of $5$ objects in total. For each object, the input features consist of:
