@@ -1,13 +1,13 @@
 batch_size: 2048
 num_workers: 4
 pin_memory: true
-task: EW_vs_Background
+task: PolState_LL_vs_LT_TT
 model_structure: ParT_Light
 interaction_type: eta_phi_dr
 num_channels: 3
 pt_log_scale: true
 
-# Model Hyperparameters (可在此直接手動修改超參數)
+# Model Hyperparameters
 num_ParAtteBlock: 3
 num_ClassAtteBlock: 1
 num_heads: 4
@@ -22,5 +22,5 @@ max_epochs: 200
 early_stopping_patience: 10
 early_stopping_threshold: 0
 parquet_dir: Sample/Parquet/batch_sr_parquet_mg_sample
-output_dir: ./ParT/results/experiments/exp_light
+output_dir: ./ParT/results/experiments/ll_vs_tx/exp_light
 seed: 42

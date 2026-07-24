@@ -1,0 +1,26 @@
+batch_size: 2048
+num_workers: 4
+pin_memory: true
+task: PolState_LL_vs_LT_TT
+model_structure: ParT_Light
+interaction_type: eta_phi_dr
+num_channels: 3
+pt_log_scale: true
+
+# Model Hyperparameters
+num_ParAtteBlock: 3
+num_ClassAtteBlock: 1
+num_heads: 8
+embed_dim: [64, 256, 128]
+fc_dim: 512
+dropout: 0.1
+
+learning_rate: 0.001
+weight_strategy: hybrid
+balance_signal_background_weights: true
+max_epochs: 200
+early_stopping_patience: 10
+early_stopping_threshold: 0
+parquet_dir: Sample/Parquet/batch_sr_parquet_mg_sample
+output_dir: ./ParT/results/experiments/ll_vs_tx/exp_wide
+seed: 42

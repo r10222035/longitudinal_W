@@ -7,7 +7,7 @@ interaction_type: eta_phi_dr
 num_channels: 3
 pt_log_scale: true
 
-# Model Hyperparameters (可在此直接手動修改超參數)
+# Model Hyperparameters
 num_ParAtteBlock: 6
 num_ClassAtteBlock: 2
 num_heads: 8
@@ -22,5 +22,5 @@ max_epochs: 200
 early_stopping_patience: 10
 early_stopping_threshold: 0
 parquet_dir: Sample/Parquet/batch_sr_parquet_mg_sample
-output_dir: ./ParT/results/experiments/exp_deep
+output_dir: ./ParT/results/experiments/ew_vs_bg/exp_deep
 seed: 42
