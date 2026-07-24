@@ -1772,6 +1772,53 @@
 
 	% subsection refined_low_level_features (end)
 
+	\subsection{Hyperparameter Tuning and Architecture Studies}% (fold)
+	\label{sub:hyperparameter_tuning_and_architecture_studies}
+
+		To ensure a fair comparison across model configurations, we standardize the pairwise interaction features by using only kinematic angular and spatial differences: $\Delta\eta$, $\Delta\phi$, and $\Delta R = \sqrt{(\Delta\eta)^2 + (\Delta\phi)^2}$.
+
+		We test four distinct model architecture hyperparameter configurations: \texttt{Micro}, \texttt{Light}, \texttt{Deep}, and \texttt{Wide}. These configurations primarily alter the depth and width of the transformer, including the number of particle attention blocks, class attention blocks, attention heads, embedding dimensions, and feed-forward network hidden dimensions. Table~\ref{tab:part_hyperparameters_comparison} summarizes the detailed hyperparameters of these four experimental setups.
+
+		\begin{table}[htbp]
+			\centering
+			\caption{Comparison of model architecture hyperparameters across the four experimental ParT configurations (\texttt{Micro}, \texttt{Light}, \texttt{Deep}, and \texttt{Wide}).}
+			\label{tab:part_hyperparameters_comparison}
+			\begin{tabular}{l|cccc}
+				\hline
+				\hline
+				Hyperparameter & Micro & Light & Deep & Wide \\
+				\hline
+				Particle Attention Blocks ($L$) & 2 & 3 & 6 & 3 \\
+				Class Attention Blocks & 1 & 1 & 2 & 1 \\
+				Attention Heads ($H$) & 4 & 4 & 8 & 8 \\
+				Embedding Dimensions & [32, 128, 32] & [64, 256, 64] & [64, 512, 64] & [64, 256, 128] \\
+				FC Hidden Dimension & 128 & 256 & 512 & 512 \\
+				Dropout & 0.1 & 0.1 & 0.1 & 0.1 \\
+				\hline
+				\hline
+			\end{tabular}
+		\end{table}
+
+		Table~\ref{tab:part_hyperparameters_results} presents the training performance across the four model configurations for the three classification tasks with high-level input features.
+
+		\begin{table}[htbp]
+			\centering
+			\caption{Comparison of test AUC results for the four ParT hyperparameter configurations across the classification tasks.}
+			\label{tab:part_hyperparameters_results}
+			\begin{tabular}{l|cccc}
+				\hline
+				\hline
+                Classification Task      & Micro & Light & Deep  & Wide  \\ \hline
+                EW $W^\pm W^\pm$ vs. Bkg & 0.778 & 0.775 & 0.773 & 0.765 \\
+                LL vs. TX                & 0.826 & 0.823 & 0.825 & 0.823 \\
+                LX vs. TT                & 0.774 & 0.772 & 0.772 & 0.771 \\
+				\hline
+				\hline
+			\end{tabular}
+		\end{table}
+
+	% subsection hyperparameter_tuning_and_architecture_studies (end)
+
 % section particle_transformer (end)
 
 \bibliographystyle{ieeetr}
