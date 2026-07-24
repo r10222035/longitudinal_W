@@ -4,13 +4,14 @@ Converted and adapted from TensorFlow reference implementation.
 """
 
 import math
+from typing import Any, List, Dict, Optional
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.init as init
 
 
-def prepare_interaction(x: torch.Tensor, pt_log_scale: bool = True) -> torch.Tensor:
+def prepare_interaction(x: torch.Tensor, pt_log_scale: bool = True, interaction_type: str = "default") -> torch.Tensor:
     """Prepare the features for interaction matrix U.
 
     Args:
@@ -21,11 +22,14 @@ def prepare_interaction(x: torch.Tensor, pt_log_scale: bool = True) -> torch.Ten
         pt_log_scale : bool
             Whether the input pt is in log-scale. If True, it will be
             exponentiated back to linear scale to compute physics quantities (kt, z).
+        interaction_type : str
+            Type of interaction features to compute:
+            - "default": log(delta), log(kt), log(z)
+            - "eta_phi_dr": (|delta_eta|, |delta_phi|, delta_R) in raw scale.
     Returns:
         torch.Tensor
             Output tensor of shape (N, 3, L, L), where N is the batch size,
-            L is the number of particles, and 3 is the feature dimension
-            corresponding to (delta, kt, z).
+            L is the number of particles, and 3 is the feature dimension.
     """
     # Expand dimensions for broadcasting
     x_i = x.unsqueeze(-2)  # (N, L, 1, 3)
@@ -35,6 +39,17 @@ def prepare_interaction(x: torch.Tensor, pt_log_scale: bool = True) -> torch.Ten
     pt_rel_i, delta_eta_i, delta_phi_i = torch.unbind(x_i, dim=-1)  # (N, L, 1)
     pt_rel_j, delta_eta_j, delta_phi_j = torch.unbind(x_j, dim=-1)  # (N, 1, L)
 
+    # Calculate delta and mod delta_phi to [-pi, pi]
+    delta_eta_diff = delta_eta_i - delta_eta_j
+    delta_phi_diff = (delta_phi_i - delta_phi_j + np.pi) % (2 * np.pi) - np.pi
+    delta = torch.sqrt(delta_eta_diff ** 2 + delta_phi_diff ** 2)  # (N, L, L)
+
+    if interaction_type == "eta_phi_dr":
+        abs_delta_eta = torch.abs(delta_eta_diff)
+        abs_delta_phi = torch.abs(delta_phi_diff)
+        features = torch.stack([abs_delta_eta, abs_delta_phi, delta], dim=-3)  # (N, 3, L, L)
+        return features
+
     # Exponentiate back to linear scale if log scale is used for pt
     if pt_log_scale:
         pt_i = torch.exp(pt_rel_i)
@@ -42,11 +57,6 @@ def prepare_interaction(x: torch.Tensor, pt_log_scale: bool = True) -> torch.Ten
     else:
         pt_i = pt_rel_i
         pt_j = pt_rel_j
-
-    # Calculate delta and mod delta_phi to [-pi, pi]
-    delta_eta_diff = delta_eta_i - delta_eta_j
-    delta_phi_diff = (delta_phi_i - delta_phi_j + np.pi) % (2 * np.pi) - np.pi
-    delta = torch.sqrt(delta_eta_diff ** 2 + delta_phi_diff ** 2)  # (N, L, L)
 
     # Calculate kt and z in linear scale
     pt_min = torch.minimum(pt_i, pt_j)  # (N, L, L)
@@ -265,6 +275,7 @@ class ParticleTransformer(nn.Module):
         self.score_dim = score_dim
         self.model_params = parameters
         self.pt_log_scale = parameters.get('pt_log_scale', True)
+        self.interaction_type = parameters.get('interaction_type', 'default')
 
         # Particle Feature Embedding
         self.par_embedding = ParticleFeatureEmbedding(
@@ -323,7 +334,7 @@ class ParticleTransformer(nn.Module):
 
         # Extract coordinate features (pt, eta, phi) for pairwise interaction
         coords = x[..., :3].clone()
-        u = prepare_interaction(coords, pt_log_scale=self.pt_log_scale)  # (N, 3, L, L)
+        u = prepare_interaction(coords, pt_log_scale=self.pt_log_scale, interaction_type=self.interaction_type)  # (N, 3, L, L)
         attn_mask = self.inter_embedding(u)  # (N, num_heads, L, L)
 
         # Particle Embedding
@@ -349,11 +360,12 @@ class ParticleTransformer(nn.Module):
 class ParT_Baseline(ParticleTransformer):
     """Baseline Particle Transformer config."""
 
-    def __init__(self, num_channels: int = 3, pt_log_scale: bool = True):
+    def __init__(self, num_channels: int = 3, pt_log_scale: bool = True, interaction_type: str = "default"):
         hyperparameters = {
             "pt_log_scale": pt_log_scale,
+            "interaction_type": interaction_type,
             "ParEmbed": {
-                "input_dim": 3 + num_channels,  # (pt, eta, phi_rel) + type one-hot
+                "input_dim": 3 + num_channels,
                 "embed_dim": [64, 512, 64]
             },
             "ParAtteBlock": {
@@ -375,11 +387,12 @@ class ParT_Baseline(ParticleTransformer):
 class ParT_Light(ParticleTransformer):
     """Lightweight Particle Transformer config."""
 
-    def __init__(self, num_channels: int = 3, pt_log_scale: bool = True):
+    def __init__(self, num_channels: int = 3, pt_log_scale: bool = True, interaction_type: str = "default"):
         hyperparameters = {
             "pt_log_scale": pt_log_scale,
+            "interaction_type": interaction_type,
             "ParEmbed": {
-                "input_dim": 3 + num_channels,  # (pt, eta, phi_rel) + type one-hot
+                "input_dim": 3 + num_channels,
                 "embed_dim": [64, 256, 64]
             },
             "ParAtteBlock": {
@@ -398,20 +411,115 @@ class ParT_Light(ParticleTransformer):
         super().__init__(score_dim=1, parameters=hyperparameters)
 
 
+def create_model_from_config(config: Any, num_channels: int) -> ParticleTransformer:
+    """Factory function to build ParticleTransformer model directly from config object/dict,
+    
+    supporting ParT_Baseline and ParT_Light as bases with direct YAML hyperparameter overrides.
+    """
+    model_type = getattr(config, "model_structure", "ParT_Light")
+    pt_log_scale = getattr(config, "pt_log_scale", True)
+    interaction_type = getattr(config, "interaction_type", "default")
+    
+    # Base defaults according to model_structure
+    if model_type == "ParT_Baseline":
+        base_params = {
+            "ParEmbed": {"input_dim": 3 + num_channels, "embed_dim": [64, 512, 64]},
+            "ParAtteBlock": {"num_heads": 8, "fc_dim": 512, "dropout": 0.1},
+            "ClassAtteBlock": {"num_heads": 8, "fc_dim": 512, "dropout": 0.0},
+            "num_ParAtteBlock": 6,
+            "num_ClassAtteBlock": 2,
+        }
+    else:  # Default ParT_Light (or Custom based on ParT_Light)
+        base_params = {
+            "ParEmbed": {"input_dim": 3 + num_channels, "embed_dim": [64, 256, 64]},
+            "ParAtteBlock": {"num_heads": 4, "fc_dim": 256, "dropout": 0.1},
+            "ClassAtteBlock": {"num_heads": 4, "fc_dim": 256, "dropout": 0.0},
+            "num_ParAtteBlock": 3,
+            "num_ClassAtteBlock": 1,
+        }
+
+    base_params["pt_log_scale"] = pt_log_scale
+    base_params["interaction_type"] = interaction_type
+
+    # 1. Override using direct YAML top-level attributes if provided
+    if getattr(config, "num_ParAtteBlock", None) is not None:
+        base_params["num_ParAtteBlock"] = getattr(config, "num_ParAtteBlock")
+    if getattr(config, "num_ClassAtteBlock", None) is not None:
+        base_params["num_ClassAtteBlock"] = getattr(config, "num_ClassAtteBlock")
+    if getattr(config, "num_heads", None) is not None:
+        num_heads = getattr(config, "num_heads")
+        base_params["ParAtteBlock"]["num_heads"] = num_heads
+        base_params["ClassAtteBlock"]["num_heads"] = num_heads
+    if getattr(config, "embed_dim", None) is not None:
+        embed_dim = getattr(config, "embed_dim")
+        if isinstance(embed_dim, list):
+            base_params["ParEmbed"]["embed_dim"] = embed_dim
+        elif isinstance(embed_dim, int):
+            base_params["ParEmbed"]["embed_dim"] = [64, embed_dim * 4, embed_dim]
+    if getattr(config, "fc_dim", None) is not None:
+        fc_dim = getattr(config, "fc_dim")
+        base_params["ParAtteBlock"]["fc_dim"] = fc_dim
+        base_params["ClassAtteBlock"]["fc_dim"] = fc_dim
+    if getattr(config, "dropout", None) is not None:
+        dropout = getattr(config, "dropout")
+        base_params["ParAtteBlock"]["dropout"] = dropout
+
+    # 2. Override using model_params dictionary if provided
+    if hasattr(config, "model_params") and isinstance(config.model_params, dict):
+        mp = config.model_params
+        if "num_ParAtteBlock" in mp:
+            base_params["num_ParAtteBlock"] = mp["num_ParAtteBlock"]
+        if "num_ClassAtteBlock" in mp:
+            base_params["num_ClassAtteBlock"] = mp["num_ClassAtteBlock"]
+        if "num_heads" in mp:
+            base_params["ParAtteBlock"]["num_heads"] = mp["num_heads"]
+            base_params["ClassAtteBlock"]["num_heads"] = mp["num_heads"]
+        if "embed_dim" in mp:
+            base_params["ParEmbed"]["embed_dim"] = mp["embed_dim"]
+        if "fc_dim" in mp:
+            base_params["ParAtteBlock"]["fc_dim"] = mp["fc_dim"]
+            base_params["ClassAtteBlock"]["fc_dim"] = mp["fc_dim"]
+        if "dropout" in mp:
+            base_params["ParAtteBlock"]["dropout"] = mp["dropout"]
+
+    return ParticleTransformer(score_dim=1, parameters=base_params)
+
+
 if __name__ == "__main__":
+    from types import SimpleNamespace
+
     # Test forward pass with mock data
-    print("Testing PyTorch Particle Transformer (ParT) model...")
-    model = ParT_Light(num_channels=3)
-    
-    # Batch size = 4, sequence length = 5, feature dimensions = 6
+    print("Testing PyTorch Particle Transformer (ParT) models...")
     mock_input = torch.randn(4, 5, 6)
-    
-    # Simulate padding (some NaNs in the first column)
     mock_input[2, 3:, 0] = float('nan')
     mock_input[3, 4:, 0] = float('nan')
-    
-    output = model(mock_input)
-    print(f"Input shape: {mock_input.shape}")
-    print(f"Output shape: {output.shape}")
-    assert output.shape == (4, 1)
-    print("Test passed successfully!")
+
+    variants = {
+        "ParT_Light (default)": ParT_Light(num_channels=3, interaction_type="default"),
+        "ParT_Light (eta_phi_dr)": ParT_Light(num_channels=3, interaction_type="eta_phi_dr"),
+        "ParT_Baseline (eta_phi_dr)": ParT_Baseline(num_channels=3, interaction_type="eta_phi_dr"),
+    }
+
+    for name, model in variants.items():
+        out = model(mock_input)
+        assert out.shape == (4, 1), f"{name} output shape error: {out.shape}"
+        print(f"  [PASS] {name} -> Output shape: {out.shape}")
+
+    # Test create_model_from_config with custom YAML attributes
+    custom_cfg = SimpleNamespace(
+        model_structure="ParT_Light",
+        interaction_type="eta_phi_dr",
+        pt_log_scale=True,
+        num_ParAtteBlock=4,
+        num_ClassAtteBlock=1,
+        num_heads=8,
+        embed_dim=[64, 256, 128],
+        fc_dim=512,
+        dropout=0.1
+    )
+    custom_model = create_model_from_config(custom_cfg, num_channels=3)
+    out_custom = custom_model(mock_input)
+    assert out_custom.shape == (4, 1)
+    print("  [PASS] Custom config dynamic model creation -> Output shape: torch.Size([4, 1])")
+        
+    print("\nAll model tests passed successfully!")

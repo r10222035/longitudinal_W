@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "DNN"))
 
 from ParT.data_loader import create_fold_loaders
-from ParT.model import ParT_Light, ParT_Baseline
+from ParT.model import create_model_from_config
 from ParT.train import Trainer, plot_auc_history, plot_loss_history, save_metrics_json, plot_score_distribution
 
 from DNN.config import TASK_DEFINITIONS
@@ -126,18 +126,20 @@ def train_single_fold(
     )
     
     # Create model
+    interaction_type = getattr(config, "interaction_type", "default")
     print("Creating ParT model...")
-    if config.model_structure == "ParT_Light":
-        model = ParT_Light(num_channels=model_num_channels, pt_log_scale=config.pt_log_scale)
-    elif config.model_structure == "ParT_Baseline":
-        model = ParT_Baseline(num_channels=model_num_channels, pt_log_scale=config.pt_log_scale)
-    else:
-        raise ValueError(f"Unknown model structure: {config.model_structure}")
+    model = create_model_from_config(config, num_channels=model_num_channels)
         
     print(f"Model architecture:")
-    print(f"  - Model Type: {config.model_structure}")
+    print(f"  - Model Type: {getattr(config, 'model_structure', 'Custom')}")
+    print(f"  - Interaction Type: {interaction_type}")
     print(f"  - Input channels (types): {model_num_channels}")
-    print(f"  - pt_log_scale: {config.pt_log_scale}\n")
+    print(f"  - pt_log_scale: {config.pt_log_scale}")
+    print(f"  - ParAtte Blocks: {model.model_params.get('num_ParAtteBlock')}")
+    print(f"  - ClassAtte Blocks: {model.model_params.get('num_ClassAtteBlock')}")
+    print(f"  - Attention Heads: {model.model_params['ParAtteBlock'].get('num_heads')}")
+    print(f"  - FFN Dimension: {model.model_params['ParAtteBlock'].get('fc_dim')}")
+    print(f"  - Embed Dims: {model.model_params['ParEmbed'].get('embed_dim')}\n")
     
     # Train model
     trainer = Trainer(
@@ -375,6 +377,13 @@ def main():
         default=None,
         help="Train only a single fold (e.g. 0)"
     )
+    parser.add_argument(
+        "--interaction_type",
+        type=str,
+        default=None,
+        choices=["default", "eta_phi_dr"],
+        help="Override the interaction feature type",
+    )
 
     args = parser.parse_args()
 
@@ -387,6 +396,7 @@ def main():
             "weight_strategy": args.weight_strategy,
             "max_epochs": args.epochs,
             "fold": args.fold,
+            "interaction_type": args.interaction_type,
         },
     )
 
