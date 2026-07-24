@@ -222,6 +222,9 @@ class ParTFoldDataset(Dataset):
                     lead_phi = filtered_phi[0]
                     features[i, :n_to_fill, 2] = (filtered_phi[:n_to_fill] - lead_phi + np.pi) % (2 * np.pi) - np.pi
                     
+                    # Zero out all one-hot channels for active particles to prevent NaNs in unused channels (e.g. MET channel)
+                    features[i, :n_to_fill, 3:] = 0.0
+                    
                     # Fill one-hot encodings based on raw channel configurations
                     if raw_num_channels == 4:
                         for c in range(4):

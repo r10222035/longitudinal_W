@@ -111,6 +111,7 @@ class MultiheadAttention(nn.Module):
     def __init__(self, embed_dim: int, num_heads: int, dropout: float = 0.1, 
                  use_bias: bool = False, use_head_scale: bool = True):
         super().__init__()
+        # dimension of particle embedding
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
