@@ -1738,8 +1738,8 @@
 
         Since the original low-level configuration did not yield better results for the polarization separation tasks (LL vs. TX and LX vs. TT), we investigate refined low-level input feature configurations. Here, we focus on expanding the one-hot encoding representation by dividing the constituent properties into tag and type categories:
         \begin{itemize}
-            \item \textbf{Tag Features (4 channels):} Identifies the parent object associations of the constituent: \texttt{Jet1}, \texttt{Jet2}, \texttt{lepton1}, or \texttt{lepton2}.
-            \item \textbf{Type Features (5 channels):} Identifies the detector reconstruction type of the constituent: \texttt{Track}, \texttt{Tower}, \texttt{Electron}, \texttt{Muon}, or \texttt{others}.
+            \item \textbf{Type Features (4 channels):} Identifies the parent object associations of the constituent: \texttt{Track}, \texttt{Tower}, \texttt{Electron}, or \texttt{Muon}.
+            \item \textbf{Tag Features (5 channels):} Identifies the detector reconstruction type of the constituent: \texttt{Jet1}, \texttt{Jet2}, \texttt{lepton1}, \texttt{lepton2}, or \texttt{others}.
         \end{itemize}
         Combining both tag and type categories yields a 9-dimensional one-hot encoding vector. Together with the 3 coordinate features ($p_{\text{T}}$, $\eta$, $\phi$), the total input feature dimension per constituent is expanded to 12.
 
@@ -1747,15 +1747,15 @@
         \begin{enumerate}
             \item The original low-level configuration (2 channels).
             \item The combined tag and type configuration (9 channels).
-            \item The tag-only configuration (4 channels).
-            \item The type-only configuration (5 channels).
+            \item The type-only configuration (4 channels).
+            \item The tag-only configuration (5 channels).
         \end{enumerate}
 
         Table~\ref{tab:refined_low_level_comparison} summarizes the test AUC results for these configurations across the three training tasks.
 
         \begin{table}[htbp]
             \centering
-            \caption{Comparison of the final test AUC scores for the ParT utilizing different low-level input configurations. The first row lists the baseline original low-level configuration (2 channels), while the subsequent rows present the 9-channel, 4-channel (Tag), and 5-channel (Type) configurations.}
+            \caption{Comparison of the final test AUC scores for the ParT utilizing different low-level input configurations. The first row lists the baseline original low-level configuration (2 channels), while the subsequent rows present the 9-channel, 4-channel (type), and 5-channel (tag) configurations.}
             \label{tab:refined_low_level_comparison}
             \begin{tabular}{l|ccc}
                 \hline
