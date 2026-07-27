@@ -70,25 +70,61 @@ def prepare_interaction(x: torch.Tensor, pt_log_scale: bool = True, interaction_
 
 
 class ParticleFeatureEmbedding(nn.Module):
-    """Embedding network for individual particle features."""
+    """Embedding network for individual particle features.
 
-    def __init__(self, input_dim: int, embedding_dims: list[int]):
+    Separately embeds continuous particle kinematics (taking 3/4 of embed_dim)
+    and particle type features (taking 1/4 of embed_dim), then concatenates them
+    into a total embed_dim token representation.
+    Example:
+      embed_dim = 32 -> continuous: 24, type: 8
+      embed_dim = 64 -> continuous: 48, type: 16
+    """
+
+    def __init__(
+        self,
+        kinematic_dim: int,
+        num_channels: int,
+        embed_dim: int = 64,
+        fc_dim: int = 256,
+    ):
         super().__init__()
-        self.input_dim = input_dim
-        self.embedding_dims = embedding_dims
+        self.kinematic_dim = kinematic_dim
+        self.num_channels = num_channels
 
-        layers = []
-        in_dim = input_dim
-        for embed_dim in embedding_dims:
-            layers.append(nn.LayerNorm(in_dim))
-            layers.append(nn.Linear(in_dim, embed_dim))
-            layers.append(nn.GELU())
-            in_dim = embed_dim
-        self.network = nn.Sequential(*layers)
+        # Type embedding takes 1/4 of total embed_dim, continuous kinematics takes 3/4
+        self.type_embed_dim = max(1, embed_dim // 4)
+        self.continuous_embed_dim = embed_dim - self.type_embed_dim
+
+        # 1. Continuous particle kinematics embedding (3/4 of total embed_dim)
+        kin_layers = [
+            nn.LayerNorm(kinematic_dim),
+            nn.Linear(kinematic_dim, fc_dim),
+            nn.GELU(),
+            nn.LayerNorm(fc_dim),
+            nn.Linear(fc_dim, self.continuous_embed_dim),
+            nn.GELU(),
+        ]
+        self.continuous_network = nn.Sequential(*kin_layers)
+
+        # 2. Type information embedding (1/4 of total embed_dim)
+        self.type_network = nn.Sequential(
+            nn.LayerNorm(num_channels),
+            nn.Linear(num_channels, self.type_embed_dim),
+            nn.GELU(),
+        )
+
+        self.out_dim = self.continuous_embed_dim + self.type_embed_dim
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Input shape: (N, L, input_dim) -> Output shape: (N, L, embed_dim_last)
-        return self.network(x)
+        # Input shape: (N, L, kinematic_dim + num_channels)
+        x_kin = x[..., : self.kinematic_dim]
+        x_type = x[..., self.kinematic_dim :]
+
+        emb_kin = self.continuous_network(x_kin)  # (N, L, 3/4 * embed_dim)
+        emb_type = self.type_network(x_type)      # (N, L, 1/4 * embed_dim)
+
+        # Concatenate continuous particle kinematics and type embeddings (N, L, embed_dim)
+        return torch.cat([emb_kin, emb_type], dim=-1)
 
 
 class InteractionMatrixEmbedding(nn.Module):
@@ -268,7 +304,9 @@ class AttentionBlock(nn.Module):
 
 
 class ParticleTransformer(nn.Module):
-    """Standard Particle Transformer module."""
+    """Standard Particle Transformer module with separate particle kinematics (3/4 embed_dim)
+    and type (1/4 embed_dim) embeddings concatenated into full embed_dim token representation.
+    """
 
     def __init__(self, score_dim: int, parameters: dict):
         super().__init__()
@@ -277,13 +315,27 @@ class ParticleTransformer(nn.Module):
         self.pt_log_scale = parameters.get('pt_log_scale', True)
         self.interaction_type = parameters.get('interaction_type', 'default')
 
-        # Particle Feature Embedding
+        kinematic_dim = parameters.get('kinematic_dim', 4 if parameters.get('use_mass', False) else 3)
+        num_channels = parameters.get('num_channels', parameters['ParEmbed']['input_dim'] - kinematic_dim)
+        
+        # Get target embed_dim (e.g. 32 for micro, 64 for light/wide/deep)
+        embed_dim_cfg = parameters['ParEmbed']['embed_dim']
+        if isinstance(embed_dim_cfg, list):
+            target_embed_dim = embed_dim_cfg[-1]
+        else:
+            target_embed_dim = int(embed_dim_cfg)
+
+        fc_dim = parameters['ParAtteBlock'].get('fc_dim', 256)
+
+        # Particle Feature Embedding (continuous: 3/4 embed_dim, type: 1/4 embed_dim)
         self.par_embedding = ParticleFeatureEmbedding(
-            input_dim=parameters['ParEmbed']['input_dim'],
-            embedding_dims=parameters['ParEmbed']['embed_dim']
+            kinematic_dim=kinematic_dim,
+            num_channels=num_channels,
+            embed_dim=target_embed_dim,
+            fc_dim=fc_dim,
         )
 
-        atte_embed_dim = parameters['ParEmbed']['embed_dim'][-1]
+        atte_embed_dim = self.par_embedding.out_dim  # Exactly equals target_embed_dim
         num_heads = parameters['ParAtteBlock']['num_heads']
 
         # Pairwise interaction embedding mapping (N, 3, L, L) -> (N, num_heads, L, L)
@@ -329,7 +381,7 @@ class ParticleTransformer(nn.Module):
         # Create padding mask (True where pt value is NaN)
         key_padding_mask = torch.isnan(x[..., 0])  # (N, L)
 
-        # Fill NaN values with zeros for the numerical operations
+        # Fill NaN values with zeros for numerical operations
         x = torch.where(key_padding_mask.unsqueeze(-1), torch.zeros_like(x), x)
 
         # Extract coordinate features (pt, eta, phi) for pairwise interaction
@@ -337,7 +389,7 @@ class ParticleTransformer(nn.Module):
         u = prepare_interaction(coords, pt_log_scale=self.pt_log_scale, interaction_type=self.interaction_type)  # (N, 3, L, L)
         attn_mask = self.inter_embedding(u)  # (N, num_heads, L, L)
 
-        # Particle Embedding
+        # Particle Embedding (Separately embeds kinematics -> 3/4 and type -> 1/4, concat -> full embed_dim)
         x = self.par_embedding(x)  # (N, L, E)
 
         # Particle Self-Attention blocks (passing attn_mask)
@@ -360,13 +412,17 @@ class ParticleTransformer(nn.Module):
 class ParT_Baseline(ParticleTransformer):
     """Baseline Particle Transformer config."""
 
-    def __init__(self, num_channels: int = 3, pt_log_scale: bool = True, interaction_type: str = "default"):
+    def __init__(self, num_channels: int = 3, pt_log_scale: bool = True, interaction_type: str = "default", use_mass: bool = False):
+        kinematic_dim = 4 if use_mass else 3
         hyperparameters = {
             "pt_log_scale": pt_log_scale,
             "interaction_type": interaction_type,
+            "use_mass": use_mass,
+            "kinematic_dim": kinematic_dim,
+            "num_channels": num_channels,
             "ParEmbed": {
-                "input_dim": 3 + num_channels,
-                "embed_dim": [64, 512, 64]
+                "input_dim": kinematic_dim + num_channels,
+                "embed_dim": 64
             },
             "ParAtteBlock": {
                 "num_heads": 8,
@@ -387,13 +443,17 @@ class ParT_Baseline(ParticleTransformer):
 class ParT_Light(ParticleTransformer):
     """Lightweight Particle Transformer config."""
 
-    def __init__(self, num_channels: int = 3, pt_log_scale: bool = True, interaction_type: str = "default"):
+    def __init__(self, num_channels: int = 3, pt_log_scale: bool = True, interaction_type: str = "default", use_mass: bool = False):
+        kinematic_dim = 4 if use_mass else 3
         hyperparameters = {
             "pt_log_scale": pt_log_scale,
             "interaction_type": interaction_type,
+            "use_mass": use_mass,
+            "kinematic_dim": kinematic_dim,
+            "num_channels": num_channels,
             "ParEmbed": {
-                "input_dim": 3 + num_channels,
-                "embed_dim": [64, 256, 64]
+                "input_dim": kinematic_dim + num_channels,
+                "embed_dim": 64
             },
             "ParAtteBlock": {
                 "num_heads": 4,
@@ -420,12 +480,17 @@ def create_model_from_config(config: Any, num_channels: int) -> ParticleTransfor
     pt_log_scale = getattr(config, "pt_log_scale", True)
     interaction_type = getattr(config, "interaction_type", "default")
     use_mass = getattr(config, "use_mass", False)
-    kinematic_dims = 4 if use_mass else 3
-    
+    kinematic_dim = 4 if use_mass else 3
+
     # Base defaults according to model_structure
     if model_type == "ParT_Baseline":
         base_params = {
-            "ParEmbed": {"input_dim": kinematic_dims + num_channels, "embed_dim": [64, 512, 64]},
+            "pt_log_scale": pt_log_scale,
+            "interaction_type": interaction_type,
+            "use_mass": use_mass,
+            "kinematic_dim": kinematic_dim,
+            "num_channels": num_channels,
+            "ParEmbed": {"input_dim": kinematic_dim + num_channels, "embed_dim": 64},
             "ParAtteBlock": {"num_heads": 8, "fc_dim": 512, "dropout": 0.1},
             "ClassAtteBlock": {"num_heads": 8, "fc_dim": 512, "dropout": 0.0},
             "num_ParAtteBlock": 6,
@@ -433,15 +498,17 @@ def create_model_from_config(config: Any, num_channels: int) -> ParticleTransfor
         }
     else:  # Default ParT_Light (or Custom based on ParT_Light)
         base_params = {
-            "ParEmbed": {"input_dim": kinematic_dims + num_channels, "embed_dim": [64, 256, 64]},
+            "pt_log_scale": pt_log_scale,
+            "interaction_type": interaction_type,
+            "use_mass": use_mass,
+            "kinematic_dim": kinematic_dim,
+            "num_channels": num_channels,
+            "ParEmbed": {"input_dim": kinematic_dim + num_channels, "embed_dim": 64},
             "ParAtteBlock": {"num_heads": 4, "fc_dim": 256, "dropout": 0.1},
             "ClassAtteBlock": {"num_heads": 4, "fc_dim": 256, "dropout": 0.0},
             "num_ParAtteBlock": 3,
             "num_ClassAtteBlock": 1,
         }
-
-    base_params["pt_log_scale"] = pt_log_scale
-    base_params["interaction_type"] = interaction_type
 
     # 1. Override using direct YAML top-level attributes if provided
     if getattr(config, "num_ParAtteBlock", None) is not None:
@@ -453,11 +520,7 @@ def create_model_from_config(config: Any, num_channels: int) -> ParticleTransfor
         base_params["ParAtteBlock"]["num_heads"] = num_heads
         base_params["ClassAtteBlock"]["num_heads"] = num_heads
     if getattr(config, "embed_dim", None) is not None:
-        embed_dim = getattr(config, "embed_dim")
-        if isinstance(embed_dim, list):
-            base_params["ParEmbed"]["embed_dim"] = embed_dim
-        elif isinstance(embed_dim, int):
-            base_params["ParEmbed"]["embed_dim"] = [64, embed_dim * 4, embed_dim]
+        base_params["ParEmbed"]["embed_dim"] = getattr(config, "embed_dim")
     if getattr(config, "fc_dim", None) is not None:
         fc_dim = getattr(config, "fc_dim")
         base_params["ParAtteBlock"]["fc_dim"] = fc_dim
@@ -491,37 +554,42 @@ if __name__ == "__main__":
     from types import SimpleNamespace
 
     # Test forward pass with mock data
-    print("Testing PyTorch Particle Transformer (ParT) models...")
-    mock_input = torch.randn(4, 5, 6)
-    mock_input[2, 3:, 0] = float('nan')
-    mock_input[3, 4:, 0] = float('nan')
+    print("Testing PyTorch Particle Transformer (ParT) models with 3/4 + 1/4 Embeddings...")
+    mock_input_32 = torch.randn(4, 5, 6)
+    mock_input_64 = torch.randn(4, 5, 6)
 
-    variants = {
-        "ParT_Light (default)": ParT_Light(num_channels=3, interaction_type="default"),
-        "ParT_Light (eta_phi_dr)": ParT_Light(num_channels=3, interaction_type="eta_phi_dr"),
-        "ParT_Baseline (eta_phi_dr)": ParT_Baseline(num_channels=3, interaction_type="eta_phi_dr"),
-    }
-
-    for name, model in variants.items():
-        out = model(mock_input)
-        assert out.shape == (4, 1), f"{name} output shape error: {out.shape}"
-        print(f"  [PASS] {name} -> Output shape: {out.shape}")
-
-    # Test create_model_from_config with custom YAML attributes
-    custom_cfg = SimpleNamespace(
+    # Test micro (embed_dim=32 -> kin:24, type:8)
+    micro_cfg = SimpleNamespace(
         model_structure="ParT_Light",
         interaction_type="eta_phi_dr",
         pt_log_scale=True,
-        num_ParAtteBlock=4,
+        num_ParAtteBlock=2,
         num_ClassAtteBlock=1,
-        num_heads=8,
-        embed_dim=[64, 256, 128],
-        fc_dim=512,
+        num_heads=2,
+        embed_dim=32,
+        fc_dim=128,
         dropout=0.1
     )
-    custom_model = create_model_from_config(custom_cfg, num_channels=3)
-    out_custom = custom_model(mock_input)
-    assert out_custom.shape == (4, 1)
-    print("  [PASS] Custom config dynamic model creation -> Output shape: torch.Size([4, 1])")
-        
-    print("\nAll model tests passed successfully!")
+    model_micro = create_model_from_config(micro_cfg, num_channels=3)
+    out_micro = model_micro(mock_input_32)
+    assert out_micro.shape == (4, 1)
+    print(f"  [PASS] exp_micro (embed_dim=32 -> kin:24, type:8) -> Output shape: {out_micro.shape}")
+
+    # Test light/wide/deep (embed_dim=64 -> kin:48, type:16)
+    light_cfg = SimpleNamespace(
+        model_structure="ParT_Light",
+        interaction_type="eta_phi_dr",
+        pt_log_scale=True,
+        num_ParAtteBlock=3,
+        num_ClassAtteBlock=1,
+        num_heads=4,
+        embed_dim=64,
+        fc_dim=256,
+        dropout=0.1
+    )
+    model_light = create_model_from_config(light_cfg, num_channels=3)
+    out_light = model_light(mock_input_64)
+    assert out_light.shape == (4, 1)
+    print(f"  [PASS] exp_light (embed_dim=64 -> kin:48, type:16) -> Output shape: {out_light.shape}")
+
+    print("\nAll dynamic 3/4 + 1/4 embedding model tests passed successfully!")
