@@ -1817,6 +1817,26 @@
 			\end{tabular}
 		\end{table}
 
+		In addition to architectural modifications, we conduct an investigation into the impact of input feature choice by incorporating the mass ($m$) feature into the input representation. Table~\ref{tab:part_mass_feature_results} details the classification test AUC performance across the four model configurations when the mass feature is included in the training.
+
+		\begin{table}[htbp]
+			\centering
+			\caption{Comparison of test AUC results for the four ParT hyperparameter configurations across the classification tasks with the mass feature ($m$).}
+			\label{tab:part_mass_feature_results}
+			\begin{tabular}{l|cccc}
+				\hline
+				\hline
+                Classification Task      & Micro & Light & Deep  & Wide  \\ \hline
+                EW $W^\pm W^\pm$ vs. Bkg & 0.788 & 0.780 & 0.783 & 0.780 \\
+                LL vs. TX                & 0.824 & 0.823 & 0.822 & 0.821 \\
+                LX vs. TT                & 0.771 & 0.770 & 0.770 & 0.769 \\
+				\hline
+				\hline
+			\end{tabular}
+		\end{table}
+
+		As shown in Table~\ref{tab:part_hyperparameters_results} and Table~\ref{tab:part_mass_feature_results}, the lighter \texttt{Micro} model achieves slightly superior performance compared to larger architectures, indicating that smaller models are sufficient to prevent overfitting on these high-level features. Furthermore, incorporating the mass feature yields a modest improvement in the inclusive EW $W^\pm W^\pm$ vs. Bkg classification while having negligible impact on polarization discrimination. Overall, these variations across model architectures and mass feature inclusion remain relatively small.
+
 	% subsection hyperparameter_tuning_and_architecture_studies (end)
 
 % section particle_transformer (end)
