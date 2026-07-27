@@ -1839,6 +1839,37 @@
 
 	% subsection hyperparameter_tuning_and_architecture_studies (end)
 
+	\subsection{Disentangled Kinematic and Type Feature Embedding}% (fold)
+	\label{sub:disentangled_kinematic_and_type_feature_embedding}
+
+		In this section, kinematic features and constituent type one-hot encodings are projected through two independent embedding branches before being concatenated:
+		\begin{equation}
+			x^0 = \left[ \text{Embed}_{\text{kin}}(X_{\text{kin}}) \;;\, \text{Embed}_{\text{type}}(X_{\text{type}}) \right] \in \mathbb{R}^{N \times d},
+		\end{equation}
+		where the kinematic projection maps to $d_{\text{kin}} = \frac{3}{4}d$ and the type projection maps to $d_{\text{type}} = \frac{1}{4}d$.
+
+		Table~\ref{tab:part_decoupled_embedding_results} summarizes the classification test AUC performance across the four model configurations using this disentangled embedding scheme.
+
+		\begin{table}[htbp]
+			\centering
+			\caption{Comparison of test AUC results for the four ParT hyperparameter configurations using separate kinematic and type embedding spaces across classification tasks.}
+			\label{tab:part_decoupled_embedding_results}
+			\begin{tabular}{l|cccc}
+				\hline
+				\hline
+                Classification Task      & Micro & Light & Deep  & Wide  \\ \hline
+                EW $W^\pm W^\pm$ vs. Bkg & 0.749 & 0.753 & 0.753 & 0.751 \\
+                LL vs. TX                & 0.797 & 0.796 & 0.798 & 0.797 \\
+                LX vs. TT                & 0.752 & 0.754 & 0.751 & 0.752 \\
+				\hline
+				\hline
+			\end{tabular}
+		\end{table}
+
+		As observed in Table~\ref{tab:part_decoupled_embedding_results}, adopting this disentangled embedding scheme leads to a noticeable degradation in classification performance across all three tasks and model architectures. For instance, the test AUC for the inclusive EW $W^\pm W^\pm$ vs. Bkg task drops from $\sim 0.78$ to $\sim 0.75$, and similar declines are observed in the polarization separation tasks. This indicates that artificially isolating the kinematic and constituent type projections hinders the model's ability to learn rich joint feature representations, ultimately leading to inferior performance.
+
+	% subsection disentangled_kinematic_and_type_feature_embedding (end)
+
 % section particle_transformer (end)
 
 \bibliographystyle{ieeetr}
