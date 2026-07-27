@@ -109,6 +109,7 @@ def train_single_fold(
         num_channels=config.num_channels,
         clean_duplicates=getattr(config, "clean_duplicates", True),
         use_met=getattr(config, "use_met", False),
+        use_mass=getattr(config, "use_mass", False),
     )
     
     # Determine model input channels dynamically from the dataset
@@ -384,6 +385,11 @@ def main():
         choices=["default", "eta_phi_dr"],
         help="Override the interaction feature type",
     )
+    parser.add_argument(
+        "--use_mass",
+        action="store_true",
+        help="Enable mass feature in kinematics"
+    )
 
     args = parser.parse_args()
 
@@ -397,6 +403,7 @@ def main():
             "max_epochs": args.epochs,
             "fold": args.fold,
             "interaction_type": args.interaction_type,
+            "use_mass": args.use_mass if args.use_mass else None,
         },
     )
 

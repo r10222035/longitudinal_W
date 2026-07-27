@@ -59,6 +59,7 @@ class ParTFoldDataset(Dataset):
         num_channels: int = 2,
         clean_duplicates: bool = True,
         use_met: bool = False,
+        use_mass: bool = False,
     ):
         assert i_fold in range(5), f"i_fold must be 0-4, got {i_fold}"
         assert fold_type in ["train", "val", "test"], \
@@ -73,6 +74,7 @@ class ParTFoldDataset(Dataset):
         self.max_particles = max_particles
         self.clean_duplicates = clean_duplicates
         self.use_met = use_met
+        self.use_mass = use_mass
         self.raw_num_channels = num_channels
 
         # Adjust num_channels if MET is included as a pseudo-particle
@@ -89,7 +91,7 @@ class ParTFoldDataset(Dataset):
             self.num_channels = num_channels
 
         # Check if features are already loaded and processed in global cache
-        cache_key = (process_name, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met)
+        cache_key = (process_name, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met, use_mass)
         
         if cache_key not in _GLOBAL_DATA_CACHE:
             print(f"Loading Parquet files for process '{process_name}' (First time, caching)...")
@@ -338,7 +340,10 @@ class ParTFoldDataset(Dataset):
                 
             return features
         else:
-            features = np.zeros((N, 5, 6), dtype=np.float32)
+            use_mass = getattr(self, "use_mass", False)
+            num_kinematics = 4 if use_mass else 3
+            num_channels = getattr(self, "num_channels", 3)
+            features = np.zeros((N, 5, num_kinematics + num_channels), dtype=np.float32)
 
             # Read base variables
             l1_pt = df["l1_pt"].values.astype(np.float32)
@@ -359,42 +364,73 @@ class ParTFoldDataset(Dataset):
             met_et = df["met_et"].values.astype(np.float32)
             dphi_met_l1 = df["dphi_met_l1"].values.astype(np.float32)
 
+            if use_mass:
+                l1_mass = df["l1_mass"].values.astype(np.float32) if "l1_mass" in df.columns else np.zeros(N, dtype=np.float32)
+                l2_mass = df["l2_mass"].values.astype(np.float32) if "l2_mass" in df.columns else np.zeros(N, dtype=np.float32)
+                j1_mass = df["j1_mass"].values.astype(np.float32) if "j1_mass" in df.columns else np.zeros(N, dtype=np.float32)
+                j2_mass = df["j2_mass"].values.astype(np.float32) if "j2_mass" in df.columns else np.zeros(N, dtype=np.float32)
+
             if pt_log_scale:
                 l1_pt = np.log(np.maximum(l1_pt, 1e-3))
                 l2_pt = np.log(np.maximum(l2_pt, 1e-3))
                 j1_pt = np.log(np.maximum(j1_pt, 1e-3))
                 j2_pt = np.log(np.maximum(j2_pt, 1e-3))
                 met_et = np.log(np.maximum(met_et, 1e-3))
+                if use_mass:
+                    l1_mass = np.log(np.maximum(l1_mass, 1e-3))
+                    l2_mass = np.log(np.maximum(l2_mass, 1e-3))
+                    j1_mass = np.log(np.maximum(j1_mass, 1e-3))
+                    j2_mass = np.log(np.maximum(j2_mass, 1e-3))
 
             # Fill Row 0: Lepton 1 (Type: [1, 0, 0])
             features[:, 0, 0] = l1_pt
             features[:, 0, 1] = l1_eta
             features[:, 0, 2] = 0.0
-            features[:, 0, 3] = 1.0
+            if use_mass:
+                features[:, 0, 3] = l1_mass
+                features[:, 0, 4] = 1.0
+            else:
+                features[:, 0, 3] = 1.0
 
             # Fill Row 1: Lepton 2 (Type: [1, 0, 0])
             features[:, 1, 0] = l2_pt
             features[:, 1, 1] = l2_eta
             features[:, 1, 2] = dphi_l2_l1
-            features[:, 1, 3] = 1.0
+            if use_mass:
+                features[:, 1, 3] = l2_mass
+                features[:, 1, 4] = 1.0
+            else:
+                features[:, 1, 3] = 1.0
 
             # Fill Row 2: Jet 1 (Type: [0, 1, 0])
             features[:, 2, 0] = j1_pt
             features[:, 2, 1] = j1_eta
             features[:, 2, 2] = dphi_j1_l1
-            features[:, 2, 4] = 1.0
+            if use_mass:
+                features[:, 2, 3] = j1_mass
+                features[:, 2, 5] = 1.0
+            else:
+                features[:, 2, 4] = 1.0
 
             # Fill Row 3: Jet 2 (Type: [0, 1, 0])
             features[:, 3, 0] = j2_pt
             features[:, 3, 1] = j2_eta
             features[:, 3, 2] = dphi_j2_l1
-            features[:, 3, 4] = 1.0
+            if use_mass:
+                features[:, 3, 3] = j2_mass
+                features[:, 3, 5] = 1.0
+            else:
+                features[:, 3, 4] = 1.0
 
             # Fill Row 4: MET (Type: [0, 0, 1])
             features[:, 4, 0] = met_et
             features[:, 4, 1] = 0.0
             features[:, 4, 2] = dphi_met_l1
-            features[:, 4, 5] = 1.0
+            if use_mass:
+                features[:, 4, 3] = np.log(1e-3) if pt_log_scale else 0.0  # MET mass = 0
+                features[:, 4, 6] = 1.0
+            else:
+                features[:, 4, 5] = 1.0
 
             return features
 
@@ -427,6 +463,7 @@ def create_fold_datasets(
     num_channels: int = 2,
     clean_duplicates: bool = True,
     use_met: bool = False,
+    use_mass: bool = False,
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """Create train, validation, and test datasets for a given fold."""
     # Get all Parquet files by process
@@ -446,13 +483,13 @@ def create_fold_datasets(
             continue
 
         train_ds = ParTFoldDataset(
-            file_paths, process_name, i_fold, "train", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met
+            file_paths, process_name, i_fold, "train", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met, use_mass
         )
         val_ds = ParTFoldDataset(
-            file_paths, process_name, i_fold, "val", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met
+            file_paths, process_name, i_fold, "val", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met, use_mass
         )
         test_ds = ParTFoldDataset(
-            file_paths, process_name, i_fold, "test", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met
+            file_paths, process_name, i_fold, "test", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met, use_mass
         )
 
         train_datasets.append(train_ds)
@@ -492,10 +529,11 @@ def create_fold_loaders(
     num_channels: int = 2,
     clean_duplicates: bool = True,
     use_met: bool = False,
+    use_mass: bool = False,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """Create PyTorch DataLoaders for train, validation, and test splits."""
     train_ds, val_ds, test_ds = create_fold_datasets(
-        parquet_dir, i_fold, task, weight_strategy, pt_log_scale, balance_weights, max_particles, num_channels, clean_duplicates, use_met
+        parquet_dir, i_fold, task, weight_strategy, pt_log_scale, balance_weights, max_particles, num_channels, clean_duplicates, use_met, use_mass
     )
 
     train_loader = DataLoader(

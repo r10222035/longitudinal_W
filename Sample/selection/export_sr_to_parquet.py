@@ -88,17 +88,21 @@ def _init_feature_store() -> dict[str, list]:
         # Basic lepton features
         "l1_pt": [],
         "l1_eta": [],
+        "l1_mass": [],
         "l1_flavor": [],
         "l1_flavor_code": [],
         "l2_pt": [],
         "l2_eta": [],
+        "l2_mass": [],
         "l2_flavor": [],
         "l2_flavor_code": [],
         # Basic jet features
         "j1_pt": [],
         "j1_eta": [],
+        "j1_mass": [],
         "j2_pt": [],
         "j2_eta": [],
+        "j2_mass": [],
         # Missing transverse momentum
         "met_et": [],
         "met_phi": [],
@@ -239,18 +243,22 @@ def _extract_features(
 
         features["l1_pt"].append(float(l1_p4.Pt()))
         features["l1_eta"].append(float(l1_p4.Eta()))
+        features["l1_mass"].append(float(l1_p4.M()))
         features["l1_flavor"].append(l1_flavor)
         # dict.get(..., 0): keep unknown flavor as 0 instead of raising KeyError.
         features["l1_flavor_code"].append(FLAVOR_TO_PDG.get(l1_flavor, 0))
         features["l2_pt"].append(float(l2_p4.Pt()))
         features["l2_eta"].append(float(l2_p4.Eta()))
+        features["l2_mass"].append(float(l2_p4.M()))
         features["l2_flavor"].append(l2_flavor)
         features["l2_flavor_code"].append(FLAVOR_TO_PDG.get(l2_flavor, 0))
 
         features["j1_pt"].append(float(j1.Pt()))
         features["j1_eta"].append(eta_j1)
+        features["j1_mass"].append(float(j1.M()))
         features["j2_pt"].append(float(j2.Pt()))
         features["j2_eta"].append(eta_j2)
+        features["j2_mass"].append(float(j2.M()))
 
         features["met_et"].append(met_et)
         features["met_phi"].append(met_phi)
@@ -448,8 +456,8 @@ def _export_parquet_parallel(
 def _validate_features(features: dict[str, np.ndarray], n_passed: int):
     # Fail fast for data integrity: required columns exist and row counts agree.
     required_columns = {
-        "l1_pt", "l1_eta", "l1_flavor", "l1_flavor_code", "l2_pt", "l2_eta", "l2_flavor", "l2_flavor_code",
-        "j1_pt", "j1_eta", "j2_pt", "j2_eta",
+        "l1_pt", "l1_eta", "l1_mass", "l1_flavor", "l1_flavor_code", "l2_pt", "l2_eta", "l2_mass", "l2_flavor", "l2_flavor_code",
+        "j1_pt", "j1_eta", "j1_mass", "j2_pt", "j2_eta", "j2_mass",
         "met_et", "met_phi",
         "dphi_l2_l1", "dphi_j1_l1", "dphi_j2_l1", "dphi_met_l1",
         "zstar_l1", "zstar_l2",

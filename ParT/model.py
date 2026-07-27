@@ -419,11 +419,13 @@ def create_model_from_config(config: Any, num_channels: int) -> ParticleTransfor
     model_type = getattr(config, "model_structure", "ParT_Light")
     pt_log_scale = getattr(config, "pt_log_scale", True)
     interaction_type = getattr(config, "interaction_type", "default")
+    use_mass = getattr(config, "use_mass", False)
+    kinematic_dims = 4 if use_mass else 3
     
     # Base defaults according to model_structure
     if model_type == "ParT_Baseline":
         base_params = {
-            "ParEmbed": {"input_dim": 3 + num_channels, "embed_dim": [64, 512, 64]},
+            "ParEmbed": {"input_dim": kinematic_dims + num_channels, "embed_dim": [64, 512, 64]},
             "ParAtteBlock": {"num_heads": 8, "fc_dim": 512, "dropout": 0.1},
             "ClassAtteBlock": {"num_heads": 8, "fc_dim": 512, "dropout": 0.0},
             "num_ParAtteBlock": 6,
@@ -431,7 +433,7 @@ def create_model_from_config(config: Any, num_channels: int) -> ParticleTransfor
         }
     else:  # Default ParT_Light (or Custom based on ParT_Light)
         base_params = {
-            "ParEmbed": {"input_dim": 3 + num_channels, "embed_dim": [64, 256, 64]},
+            "ParEmbed": {"input_dim": kinematic_dims + num_channels, "embed_dim": [64, 256, 64]},
             "ParAtteBlock": {"num_heads": 4, "fc_dim": 256, "dropout": 0.1},
             "ClassAtteBlock": {"num_heads": 4, "fc_dim": 256, "dropout": 0.0},
             "num_ParAtteBlock": 3,
