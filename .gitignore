@@ -26,3 +26,5 @@ DNN/configs/
 .agents
 
 scripts/
+
+mutagen.yml.lock

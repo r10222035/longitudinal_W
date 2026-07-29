@@ -1,0 +1,33 @@
+sync:
+  defaults:
+    mode: "two-way-safe"       # ⭐️ 強制使用安全模式：若有檔案衝突，絕不擅自覆蓋！
+    ignore:
+      vcs: true                # 自動忽略 .git 檔案
+      paths:
+        # --- 1. 忽略 LaTeX 暫存檔 ---
+        - "*.aux"
+        - "*.log"
+        - "*.out"
+        - "*.xdv"
+        - "*.fls"
+        - "*.fdb_latexmk"
+        - "*.synctex.gz"
+        - "*.bbl"
+        - "*.blg"         
+
+        # --- 2. ⚠️ 填入您 Cluster 上不打算同步的大資料與模擬樣本 ---
+        - "Sample/MG5/"
+        - "Sample/Sherpa/"
+        - "Sample/Parquet/"
+        - "Sample/MG_sample"
+
+        # --- 3. 忽略 PBS 日誌 ---
+        - "*.o[0-9]*"
+        - "*.e[0-9]*"
+
+        - "mutagen.yml"
+        - "mutagen.yml.lock"
+
+  longitudinal-w-sync:
+    alpha: "."
+    beta: "fyhsieh@140.112.102.158:/data05-4/fyhsieh/longitudinal_W"
