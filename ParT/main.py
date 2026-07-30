@@ -110,6 +110,7 @@ def train_single_fold(
         clean_duplicates=getattr(config, "clean_duplicates", True),
         use_met=getattr(config, "use_met", False),
         use_mass=getattr(config, "use_mass", False),
+        use_standard_scaler=getattr(config, "use_standard_scaler", False),
     )
     
     # Determine model input channels dynamically from the dataset
@@ -390,6 +391,11 @@ def main():
         action="store_true",
         help="Enable mass feature in kinematics"
     )
+    parser.add_argument(
+        "--use_standard_scaler",
+        action="store_true",
+        help="Enable StandardScaler for continuous features (fit on train fold)"
+    )
 
     args = parser.parse_args()
 
@@ -404,6 +410,7 @@ def main():
             "fold": args.fold,
             "interaction_type": args.interaction_type,
             "use_mass": args.use_mass if args.use_mass else None,
+            "use_standard_scaler": args.use_standard_scaler if args.use_standard_scaler else None,
         },
     )
 

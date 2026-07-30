@@ -464,6 +464,7 @@ def create_fold_datasets(
     clean_duplicates: bool = True,
     use_met: bool = False,
     use_mass: bool = False,
+    use_standard_scaler: bool = False,
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """Create train, validation, and test datasets for a given fold."""
     # Get all Parquet files by process
@@ -511,6 +512,34 @@ def create_fold_datasets(
                     ds.weights = balanced_weights[start_idx:end_idx]
                     start_idx = end_idx
 
+    # Standardize continuous features using StandardScaler fit on Train Fold
+    if use_standard_scaler:
+        print("\nApplying StandardScaler to continuous features (fit on train fold)...")
+        from sklearn.preprocessing import StandardScaler
+
+        all_train_features = []
+        for ds in train_datasets:
+            kin_dim = 4 if getattr(ds, "use_mass", False) else 3
+            kin_data = ds.features[..., :kin_dim].reshape(-1, kin_dim)
+            valid_mask = ~np.isnan(kin_data).any(axis=-1)
+            if valid_mask.any():
+                all_train_features.append(kin_data[valid_mask])
+
+        if len(all_train_features) > 0:
+            train_mat = np.concatenate(all_train_features, axis=0)
+            scaler = StandardScaler().fit(train_mat)
+
+            for ds_list in [train_datasets, val_datasets, test_datasets]:
+                for ds in ds_list:
+                    kin_dim = 4 if getattr(ds, "use_mass", False) else 3
+                    shape = ds.features[..., :kin_dim].shape
+                    kin_flat = ds.features[..., :kin_dim].reshape(-1, kin_dim)
+                    valid_mask = ~np.isnan(kin_flat).any(axis=-1)
+                    if valid_mask.any():
+                        kin_flat[valid_mask] = scaler.transform(kin_flat[valid_mask])
+                    ds.features[..., :kin_dim] = kin_flat.reshape(shape)
+            print("  StandardScaler applied successfully to continuous features.")
+
     from torch.utils.data import ConcatDataset
     return ConcatDataset(train_datasets), ConcatDataset(val_datasets), ConcatDataset(test_datasets)
 
@@ -530,10 +559,11 @@ def create_fold_loaders(
     clean_duplicates: bool = True,
     use_met: bool = False,
     use_mass: bool = False,
+    use_standard_scaler: bool = False,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """Create PyTorch DataLoaders for train, validation, and test splits."""
     train_ds, val_ds, test_ds = create_fold_datasets(
-        parquet_dir, i_fold, task, weight_strategy, pt_log_scale, balance_weights, max_particles, num_channels, clean_duplicates, use_met, use_mass
+        parquet_dir, i_fold, task, weight_strategy, pt_log_scale, balance_weights, max_particles, num_channels, clean_duplicates, use_met, use_mass, use_standard_scaler
     )
 
     train_loader = DataLoader(
@@ -561,3 +591,4 @@ def create_fold_loaders(
     )
 
     return train_loader, val_loader, test_loader
+
