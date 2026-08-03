@@ -28,3 +28,5 @@ DNN/configs/
 scripts/
 
 mutagen.yml.lock
+
+ASGC_Jobs/

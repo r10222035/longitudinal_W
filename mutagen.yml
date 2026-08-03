@@ -1,33 +1,52 @@
 sync:
   defaults:
-    mode: "two-way-safe"       # ⭐️ 強制使用安全模式：若有檔案衝突，絕不擅自覆蓋！
+    mode: "two-way-safe"
+    symlink:
+      mode: "portable"
     ignore:
-      vcs: true                # 自動忽略 .git 檔案
+      vcs: true
       paths:
-        # --- 1. 忽略 LaTeX 暫存檔 ---
-        - "*.aux"
-        - "*.log"
-        - "*.out"
-        - "*.xdv"
-        - "*.fls"
-        - "*.fdb_latexmk"
-        - "*.synctex.gz"
-        - "*.bbl"
-        - "*.blg"         
-
-        # --- 2. ⚠️ 填入您 Cluster 上不打算同步的大資料與模擬樣本 ---
-        - "Sample/MG5/"
-        - "Sample/Sherpa/"
-        - "Sample/Parquet/"
-        - "Sample/MG_sample"
-
-        # --- 3. 忽略 PBS 日誌 ---
-        - "*.o[0-9]*"
-        - "*.e[0-9]*"
-
+        # --- 1. 忽略 Mutagen 本身的設定檔與鎖定檔 ---
         - "mutagen.yml"
         - "mutagen.yml.lock"
 
-  longitudinal-w-sync:
+        # --- 2. 忽略 Python 快取檔 ---
+        - "__pycache__/"
+        - "*.pyc"
+
+        # --- 3. Level 1 原始 Delphes 大資料與 Level 2 精簡訓練資料 (只存 Cluster) ---
+        - "Sample/MG5/"
+        - "Sample/Sherpa/"
+        - "Sample/MG_sample"
+        - "Sample/Parquet/"
+        - "Sample/selection_results/"
+        - "*.root"
+        - "*.hepmc"
+        - "*.lhe"
+        - "*.h5"
+
+        # --- 4. LaTeX 編譯中間暫存檔 ---
+        - "*.aux"
+        - "*.log"
+        - "*.fls"
+        - "*.fdb_latexmk"
+        - "*.synctex.gz"
+        - "*.toc"
+        - "*.bbl"
+        - "*.blg"
+        - "*.out"
+        - "*.xdv"
+
+        # --- 5. 作業調度系統日誌檔 ---
+        - "*.o[0-9]*"
+        - "*.e[0-9]*"
+
+  # --- 目標 1: NCTS Cluster ---
+  ntu-cluster:
     alpha: "."
     beta: "fyhsieh@140.112.102.158:/datagpunas-1/fyhsieh/longitudinal_W"
+
+  # --- 目標 2: ASGC DiCOS Cluster (使用 SSH 別名 DiCOS) ---
+  asgc-cluster:
+    alpha: "."
+    beta: "DiCOS:/ceph/work/HEP/fengyang/longitudinal_W"

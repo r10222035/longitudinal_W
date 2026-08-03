@@ -1870,6 +1870,31 @@
 
 	% subsection disentangled_kinematic_and_type_feature_embedding (end)
 
+	\subsection{Impact of Input Feature Standardization}% (fold)
+	\label{sub:impact_of_input_feature_standardization}
+
+		To evaluate whether feature scaling affects model convergence and discriminative capability, we conduct an investigation by applying \texttt{StandardScaler} to the continuous input features (fitting on the training fold and transforming the validation and test sets). Table~\ref{tab:part_standardized_input_results} summarizes the test AUC scores across the four model configurations when feature standardization is applied.
+
+		\begin{table}[htbp]
+			\centering
+			\caption{Comparison of test AUC results for the four ParT hyperparameter configurations when continuous input features are standardized using \texttt{StandardScaler}.}
+			\label{tab:part_standardized_input_results}
+			\begin{tabular}{l|cccc}
+				\hline
+				\hline
+				Classification Task      & Micro & Light & Deep  & Wide  \\ \hline
+				EW $W^\pm W^\pm$ vs. Bkg & 0.768 & 0.767 & 0.768 & 0.765 \\
+				LL vs. TX                & 0.816 & 0.815 & 0.817 & 0.815 \\
+				LX vs. TT                & 0.765 & 0.764 & 0.766 & 0.764 \\
+				\hline
+				\hline
+			\end{tabular}
+		\end{table}
+
+		Comparing Table~\ref{tab:part_standardized_input_results} with the unstandardized baseline results in Table~\ref{tab:part_hyperparameters_results}, applying \texttt{StandardScaler} consistently degrades the test AUC performance by approximately $0.01$ across all three classification tasks and across all model architectures. Since the internal embedding MLPs and LayerNorm layers in ParT handle feature scaling, pre-standardization introduces an unnecessary constraint that leads to slightly degraded classification performance.
+
+	% subsection impact_of_input_feature_standardization (end)
+
 % section particle_transformer (end)
 
 \bibliographystyle{ieeetr}
