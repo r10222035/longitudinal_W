@@ -41,12 +41,17 @@ sync:
         - "*.o[0-9]*"
         - "*.e[0-9]*"
 
-  # --- 目標 1: NCTS Cluster ---
-  ntu-cluster:
+  # --- 目標 1: NCTS Intel Cluster ---
+  NCTS-Intel:
     alpha: "."
     beta: "fyhsieh@140.112.102.158:/datagpunas-1/fyhsieh/longitudinal_W"
 
   # --- 目標 2: ASGC DiCOS Cluster (使用 SSH 別名 DiCOS) ---
-  asgc-cluster:
+  ASGC-DiCOS:
     alpha: "."
     beta: "DiCOS:/ceph/work/HEP/fengyang/longitudinal_W"
+
+  # --- 目標 3: NCTS AMD Cluster ---
+  NCTS-AMD:
+    alpha: "."
+    beta: "fyhsieh@140.112.102.218:/amd05-1/fyhsieh/longitudinal_W"
