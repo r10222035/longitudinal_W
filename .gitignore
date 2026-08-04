@@ -1,32 +1,48 @@
+# --- 1. 忽略 Mutagen 鎖定檔 ---
+mutagen.yml.lock
+
+# --- 2. 忽略 Python 快取檔 ---
+__pycache__/
+
+# --- 3. 原始大資料與精簡訓練資料 (只存 Cluster) ---
+Sample/MG5/
+Sample/Sherpa/
+Sample/MG_sample
+Sample/Parquet/
+*.root
+*.hepmc
+*.lhe
+*.h5
+
+# --- 4. LaTeX 編譯中間暫存檔 ---
 *.aux
 *.log
-*.out
-*.xdv
 *.fls
 *.fdb_latexmk
 *.synctex.gz
 *.bbl
 *.blg
+*.out
+*.xdv
 
-__pycache__/
+# --- 5. 作業調度系統腳本與日誌檔 ---
+ASGC_Jobs/
+NCTS-AMD_Jobs/
+NCTS-Intel_Jobs/
+*.o[0-9]*
+*.e[0-9]*
 
-/Reference
-*_models/
-config_files/
+# --- 6. 腳本檔案 ---
+scripts/
 *.sh
-Sample/MG5/
-Sample/MG_sample
-Sample/Sherpa/
-Sample/Parquet/
 
-DNN/configs/
+# --- 7. Agent 資料 ---
+.agents
+.vscode
+
+# --- 8. 模型訓練成果與配置檔案 ---
+*/configs/
 */results/
 
-.vscode
-.agents
-
-scripts/
-
-mutagen.yml.lock
-
-ASGC_Jobs/
+# --- 9. 參考資料 ---
+/Reference
