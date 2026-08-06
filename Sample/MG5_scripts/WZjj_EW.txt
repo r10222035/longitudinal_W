@@ -1,7 +1,7 @@
 generate p p > w+ z j j QCD=0, w+ > l+ vl, z > l+ l-
 add process p p > w- z j j QCD=0, w- > l- vl~, z > l+ l-
-output MG_sample/WZjj_EW
-launch MG_sample/WZjj_EW
+output MG5/WZjj_EW
+launch MG5/WZjj_EW
 
 shower=Pythia8
 detector=Delphes
