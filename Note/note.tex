@@ -1895,6 +1895,107 @@
 
 	% subsection impact_of_input_feature_standardization (end)
 
+	\subsection{5-Fold Cross-Validation Benchmark with Aligned Settings}% (fold)
+	\label{sub:5_fold_cross_validation_benchmark_with_aligned_settings}
+
+		To perform a fair comparison, we align the ParT training setup with the same settings.
+
+		\subsubsection{Aligned Training Configurations}
+
+			The aligned experimental settings implemented in the 5-fold cross-validation workflow are defined as follows:
+			\begin{itemize}
+				\item \textbf{Hybrid Weighting \& Class Balancing:} Events are weighted using the Hybrid Strategy (combining physical cross-section yield with inverse event count $1/N_{\text{gen}}$). Global class balancing ($\sum w_{\text{sig}} = \sum w_{\text{bkg}}$) is enforced to prevent the loss function from favoring the majority class.
+
+				\item \textbf{Model Architecture:} We employ the lightweight \texttt{ParT\_Light} model structure, consisting of $L=3$ particle attention blocks, $1$ class attention block, $H=4$ attention heads, embedding dimensions $[64, 256, 64]$, FC hidden dimension $256$, and a dropout rate of $0.1$.
+
+				\item \textbf{Feature Preprocessing:} Transverse momentum $p_{\text{T}}$ features are transformed into logarithmic scale $\ln(p_{\text{T}})$ to enhance numerical stability.
+
+                \item \textbf{Type Embedding:} We concatenate the input features with the type information first. Then, embedd them into a abstract latent space.
+
+				\item \textbf{Early Stopping:} An early stopping patience of $10$ epochs monitoring the validation AUC is applied to prevent overfitting.
+			\end{itemize}
+
+		\subsubsection{5-Fold Performance Results}
+
+			Table~\ref{tab:part_5fold_aligned_results} details the 5-fold cross-validation results for the polarization task (LL vs. TX) evaluated on the high-level feature dataset under the aligned setup.
+
+			\begin{table}[htbp]
+				\centering
+				\caption{Performance metrics across the 5 independent folds for the ParT model (\texttt{ParT\_Light}) on the polarization task (LL vs. TX) using high-level features under the aligned setup.}
+				\label{tab:part_5fold_aligned_results}
+				\begin{tabular}{l|c|cc}
+					\hline
+					\hline
+					Fold Index & Training / Val / Test Events & Best Validation AUC & Test AUC \\
+					\hline
+					Fold 0 & 441,246 / 147,081 / 147,084 & 0.8184 & 0.8212 \\
+					Fold 1 & 441,244 / 147,084 / 147,083 & 0.8214 & 0.8207 \\
+					Fold 2 & 441,246 / 147,083 / 147,082 & 0.8184 & 0.8211 \\
+					Fold 3 & 441,248 / 147,082 / 147,081 & 0.8230 & 0.8215 \\
+					Fold 4 & 441,249 / 147,081 / 147,081 & 0.8214 & 0.8173 \\
+					\hline
+					\textbf{Mean $\pm$ Std} & --- & \textbf{$0.8205 \pm 0.0019$} & \textbf{$0.8204 \pm 0.0016$} \\
+					\hline
+					\hline
+				\end{tabular}
+			\end{table}
+
+			As shown in Table~\ref{tab:part_5fold_aligned_results}, the ParT model achieves a highly consistent test ROC-AUC score of $0.8204 \pm 0.0016$ across the 5 independent folds, exhibiting an low standard deviation. Furthermore, the negligible difference between the mean validation AUC ($0.8205$) and test AUC ($0.8204$) confirms that the aligned dataset split and training strategy effectively prevent data leakage and overfitting.
+
+	% subsection 5_fold_cross_validation_benchmark_with_aligned_settings (end)
+
+	\subsection{Comparative Analysis: Low-Level vs. High-Level Training}% (fold)
+	\label{sub:comparative_analysis_low_level_vs_high_level_training}
+
+		To evaluate whether detector-level constituents provide superior discrimination capability over reconstructed objects, we conduct a comparative analysis using low-level feature training.
+
+        \subsubsection{Low-level training setup}% (fold)
+        \label{subs:low_level_training_setup}
+
+			The low-level training pipeline is configured as follows:
+			\begin{itemize}
+				\item \textbf{Input Constituents:} Detector-level tracks and calorimeter towers are extracted for each event.
+				\item \textbf{Sequence Length \& Padding:} To maintain a uniform sequence dimension for the Transformer, a maximum of $N_{\text{max}} = 128$ highest-$p_{\text{T}}$ constituents per event are selected. Events with fewer constituents are padded with zero vectors.
+				\item \textbf{Feature Dimension (2-channel):} Each constituent is represented by 5 features: continuous spatial kinematics $(p_{\text{T}}, \eta, \phi)$ where $p_{\text{T}}$ is log-scaled, and a 2-dimensional one-hot encoding indicating constituent type (\texttt{Track} or \texttt{Calorimeter Tower}).
+				\item \textbf{Hyperparameters:} The model uses the \texttt{ParT\_Light} architecture with $N_{\text{max}} = 128$. The batch size is set to 512. The Adam optimizer ($\text{lr} = 10^{-3}$) and early stopping (patience $= 10$) settings match the high-level benchmark.
+			\end{itemize}
+
+        % subsubsection low_level_training_setup (end)	
+
+        \subsubsection{Performance comparison and results}% (fold)
+        \label{subs:performance_comparison_and_results}
+
+			Table~\ref{tab:part_low_level_comparison_results} presents the test ROC-AUC performance comparison between the baseline Dense-NN, High-Level ParT (5-fold ensemble mean), and Low-Level ParT.
+
+			\begin{table}[htbp]
+				\centering
+				\caption{Comparison of test AUC performance between the baseline Dense-NN, High-Level ParT, and Low-Level ParT across the three classification tasks.}
+				\label{tab:part_low_level_comparison_results}
+				\begin{tabular}{l|c|c|cc}
+					\hline
+					\hline
+					Classification Task & Dense-NN & ParT (High-Level) & ParT (Low-Level) \\
+					& (Baseline) & (5-Fold Mean) &  Fold 0 \\
+					\hline
+					EW $W^\pm W^\pm$ vs. Bkg & 0.806 & 0.779 &            \textbf{0.9426} \\
+					LL vs. TX (LL vs. LT+TT) & \textbf{0.839} & 0.8204 &  0.8047 \\
+					LX vs. TT (LL+LT vs. TT) & \textbf{0.781} & 0.772 &   0.7550 \\
+					\hline
+					\hline
+				\end{tabular}
+			\end{table}
+
+			The results in Table~\ref{tab:part_low_level_comparison_results} reveal two distinct behaviors:
+			\begin{enumerate}
+				\item \textbf{Significant Improvement in Inclusive EW $W^\pm W^\pm$ vs. Bkg:} For the inclusive signal vs. background task, the low-level ParT achieves an outstanding test AUC of \textbf{0.9426}. This substantial gain is driven by constituent multiplicity. Background processes feature higher track and tower counts due to intense QCD radiation and color reconnection, as shown in Figure~\ref{fig:constituent_multiplicity}. The ParT attention mechanism effectively leverages these low-level global multiplicity signatures.
+
+				\item \textbf{Limited Performance in Polarization Separation (LL vs. TX \& LX vs. TT):} Conversely, for polarization discrimination tasks, low-level ParT is slightly lower than high-level ParT and baseline Dense-NN. This limitation stems from the physical nature of polarization states: LL, LT, and TT processes are all electroweak VBS signals with identical production channels, resulting in nearly identical constituent multiplicity distributions (Figure~\ref{fig:constituent_multiplicity_polarization}).
+            \end{enumerate}
+
+        % subsubsection performance_comparison_and_results (end)	
+
+	% subsection comparative_analysis_low_level_vs_high_level_training (end)
+
 % section particle_transformer (end)
 
 \bibliographystyle{ieeetr}
