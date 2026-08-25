@@ -1,7 +1,8 @@
 # --- 1. 忽略 Mutagen 鎖定檔 ---
 mutagen.yml.lock
 
-# --- 2. 忽略 Python 快取檔 ---
+# --- 2. 忽略 Python 虛擬環境與快取檔 ---
+.venv/
 __pycache__/
 
 # --- 3. 原始大資料與精簡訓練資料 (只存 Cluster) ---
