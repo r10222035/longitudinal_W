@@ -1996,6 +1996,41 @@
 
 	% subsection comparative_analysis_low_level_vs_high_level_training (end)
 
+	\subsection{Event Scaling and Sample Size Dependence}% (fold)
+	\label{sub:event_scaling_and_sample_size_dependence}
+
+		To evaluate the impact of training sample size on the classification performance of the ParT, we conduct an event scaling experiment using the High-Level input feature set. The total Monte Carlo dataset is subsampled into five representative fractions: $100\%$, $50\%$, $25\%$, $10\%$, and $5\%$.
+
+		\subsubsection{Experimental Setup and Subsampling Strategy}
+
+			The scaling experiment is evaluated on Fold 0 across the three classification tasks: inclusive EW $W^\pm W^\pm$ vs. Bkg, LL vs. TX, and LX vs. TT. Models are trained using the \texttt{ParT\_Light} architecture with logarithmic $p_{\text{T}}$ scaling, hybrid event weighting, and an early stopping patience of $10$ epochs.
+
+			To eliminate random fluctuations introduced by sampling different event populations, the subsampling procedure enforces a nested subset property. Smaller sample fractions are constructed as strict subsets of larger fractions. Consequently, performance variations across sample sizes strictly reflect the influence of available training statistics.
+
+		\subsubsection{Performance Scaling and Physical Insights}
+
+			Figure~\ref{fig:part_event_scaling_curve} presents the test AUC scores evaluated on Fold 0 as a function of the total event count across the three classification tasks.
+
+			\begin{figure}[htbp]
+				\centering
+				\includegraphics[width=0.7\textwidth]{part_event_scaling_curve-high_level.pdf}
+				\caption{Test AUC performance as a function of total event count for the three classification tasks evaluated on Fold 0 using the High-Level ParT model.}
+				\label{fig:part_event_scaling_curve}
+			\end{figure}
+
+			The results exhibit distinct scaling behaviors across the classification tasks:
+			\begin{itemize}
+				\item \textbf{High Sensitivity in Polarization Tasks (LL vs. TX and LX vs. TT):} Polarization separation demonstrates a strong dependence on dataset size. For the LL vs. TX task, the test AUC increases significantly from $0.7585$ at $5\%$ sample fraction to $0.8147$ at $100\%$, representing an absolute gain of $+5.62\%$. Similarly, for the LX vs. TT task, the test AUC grows from $0.7175$ to $0.7583$ ($+4.08\%$). Physically, the polarization states (LL, LT, TT) share identical final-state particles and production channels, differing only in subtle kinematic angular correlations. The neural network requires substantial statistics to extract these subtle high-level features effectively.
+
+				\item \textbf{Steady Growth in Inclusive Classification (EW vs. Bkg):} For the inclusive signal vs. background task, the test AUC exhibits a steady improvement from $0.7235$ at $5\%$ to $0.7613$ at $100\%$, yielding a $+3.78\%$ increase.
+			\end{itemize}
+
+		\subsubsection{Saturation Assessment}
+
+			As shown in Figure~\ref{fig:part_event_scaling_curve}, the AUC trajectory for the polarization tasks maintains a upward slope up to the $1.40\text{M}$ events, indicating that performance has not yet reached saturation. This demonstrates that expanding the simulated Monte Carlo sample size offers substantial potential for improving polarization measurement sensitivity.
+
+	% subsection event_scaling_and_sample_size_dependence (end)
+
 % section particle_transformer (end)
 
 \bibliographystyle{ieeetr}
