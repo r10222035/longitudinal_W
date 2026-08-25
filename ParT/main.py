@@ -111,6 +111,8 @@ def train_single_fold(
         use_met=getattr(config, "use_met", False),
         use_mass=getattr(config, "use_mass", False),
         use_standard_scaler=getattr(config, "use_standard_scaler", False),
+        dataset_fraction=getattr(config, "dataset_fraction", 1.0),
+        dataset_seed=getattr(config, "dataset_seed", 42),
     )
     
     # Determine model input channels dynamically from the dataset
@@ -396,6 +398,18 @@ def main():
         action="store_true",
         help="Enable StandardScaler for continuous features (fit on train fold)"
     )
+    parser.add_argument(
+        "--dataset_fraction",
+        type=float,
+        default=None,
+        help="Fraction of dataset to subsample (0.0 < fraction <= 1.0)"
+    )
+    parser.add_argument(
+        "--dataset_seed",
+        type=int,
+        default=None,
+        help="Random seed for dataset subsampling"
+    )
 
     args = parser.parse_args()
 
@@ -411,6 +425,8 @@ def main():
             "interaction_type": args.interaction_type,
             "use_mass": args.use_mass if args.use_mass else None,
             "use_standard_scaler": args.use_standard_scaler if args.use_standard_scaler else None,
+            "dataset_fraction": args.dataset_fraction,
+            "dataset_seed": args.dataset_seed,
         },
     )
 

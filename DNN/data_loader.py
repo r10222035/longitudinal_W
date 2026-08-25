@@ -33,6 +33,7 @@ def parse_process_name_from_filename(filename: str) -> str:
     Examples:
         "WWjj_EW-LL-WW_cmf_run_01_sr.parquet" -> "WWjj_EW_LL_WW_cmf"
         "WWjj_QCD_run_01_sr.parquet" -> "WWjj_QCD"
+        "amd_WWjj_EW_LL_WW_cmf_10001_sr.parquet" -> "WWjj_EW_LL_WW_cmf"
     
     Args:
         filename: Parquet filename (without directory)
@@ -40,10 +41,15 @@ def parse_process_name_from_filename(filename: str) -> str:
     Returns:
         Normalized process name
     """
+    import re
     # Remove extension
     name = filename.replace(".parquet", "")
-    # Remove run info and _sr suffix
+    # Remove leading amd_ prefix if present
+    if name.startswith("amd_"):
+        name = name[4:]
+    # Remove run info (_run_01) or job ID (_10001) and _sr suffix
     name = name.split("_run_")[0]
+    name = re.sub(r'(_\d{4,6})?(_sr|_constituent_sr)?$', '', name)
     # Replace hyphens with underscores for consistency
     name = name.replace("-", "_")
     return name

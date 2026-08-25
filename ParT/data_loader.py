@@ -60,6 +60,8 @@ class ParTFoldDataset(Dataset):
         clean_duplicates: bool = True,
         use_met: bool = False,
         use_mass: bool = False,
+        dataset_fraction: float = 1.0,
+        dataset_seed: int = 42,
     ):
         assert i_fold in range(5), f"i_fold must be 0-4, got {i_fold}"
         assert fold_type in ["train", "val", "test"], \
@@ -75,6 +77,8 @@ class ParTFoldDataset(Dataset):
         self.clean_duplicates = clean_duplicates
         self.use_met = use_met
         self.use_mass = use_mass
+        self.dataset_fraction = dataset_fraction
+        self.dataset_seed = dataset_seed
         self.raw_num_channels = num_channels
 
         # Adjust num_channels if MET is included as a pseudo-particle
@@ -111,6 +115,16 @@ class ParTFoldDataset(Dataset):
         all_features = cache["features"]
         all_event_numbers = cache["event_numbers"]
         n_events = cache["n_events"]
+
+        # Apply dataset_fraction subsampling if dataset_fraction < 1.0
+        if 0.0 < dataset_fraction < 1.0:
+            n_sampled = max(1, int(round(n_events * dataset_fraction)))
+            rng = np.random.RandomState(dataset_seed)
+            perm = rng.permutation(n_events)[:n_sampled]
+            perm = np.sort(perm)
+            all_features = all_features[perm]
+            all_event_numbers = all_event_numbers[perm]
+            n_events = len(all_event_numbers)
 
         # Fold splitting logic
         test_mask = (all_event_numbers - i_fold) % 5 == 0
@@ -465,6 +479,8 @@ def create_fold_datasets(
     use_met: bool = False,
     use_mass: bool = False,
     use_standard_scaler: bool = False,
+    dataset_fraction: float = 1.0,
+    dataset_seed: int = 42,
 ) -> Tuple[Dataset, Dataset, Dataset]:
     """Create train, validation, and test datasets for a given fold."""
     # Get all Parquet files by process
@@ -484,13 +500,13 @@ def create_fold_datasets(
             continue
 
         train_ds = ParTFoldDataset(
-            file_paths, process_name, i_fold, "train", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met, use_mass
+            file_paths, process_name, i_fold, "train", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met, use_mass, dataset_fraction, dataset_seed
         )
         val_ds = ParTFoldDataset(
-            file_paths, process_name, i_fold, "val", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met, use_mass
+            file_paths, process_name, i_fold, "val", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met, use_mass, dataset_fraction, dataset_seed
         )
         test_ds = ParTFoldDataset(
-            file_paths, process_name, i_fold, "test", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met, use_mass
+            file_paths, process_name, i_fold, "test", task, weight_strategy, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met, use_mass, dataset_fraction, dataset_seed
         )
 
         train_datasets.append(train_ds)
@@ -560,10 +576,12 @@ def create_fold_loaders(
     use_met: bool = False,
     use_mass: bool = False,
     use_standard_scaler: bool = False,
+    dataset_fraction: float = 1.0,
+    dataset_seed: int = 42,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """Create PyTorch DataLoaders for train, validation, and test splits."""
     train_ds, val_ds, test_ds = create_fold_datasets(
-        parquet_dir, i_fold, task, weight_strategy, pt_log_scale, balance_weights, max_particles, num_channels, clean_duplicates, use_met, use_mass, use_standard_scaler
+        parquet_dir, i_fold, task, weight_strategy, pt_log_scale, balance_weights, max_particles, num_channels, clean_duplicates, use_met, use_mass, use_standard_scaler, dataset_fraction, dataset_seed
     )
 
     train_loader = DataLoader(
