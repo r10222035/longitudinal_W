@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Export SR-passed Delphes events to a Parquet table with Track & Tower constituents.
+"""Export SR-passed Delphes events to a Parquet table with EFlow constituent particles.
 
-This script reuses the canonical reconstructed-level SR definition from
-`selection.core.cuts.pass_SR_cuts` and extracts all constituent features from
-`Track` and `Tower` branches for downstream network training (CNN, Particle Net, ParT).
+Extracts all EFlow constituents (EFlowTrack, EFlowPhoton, EFlowNeutralHadron)
+and event-level reconstructed objects (leptons, jets, MET) for downstream ParT training.
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ import pyarrow.parquet as pq
 
 try:
     from tqdm.auto import tqdm
-except Exception:  # pragma: no cover - fallback for minimal environments
+except Exception:  # pragma: no cover
     def tqdm(iterable, **kwargs):
         return iterable
 
@@ -41,28 +40,22 @@ import ROOT
 
 def _init_feature_store() -> dict[str, list]:
     return {
-        # Track constituent features
-        "track_pt": [],
-        "track_eta": [],
-        "track_phi": [],
-        "track_charge": [],
-        "track_x": [],
-        "track_y": [],
-        "track_z": [],
-        "track_t": [],
-        "track_mass": [],
-        "track_pid": [],
-        "n_tracks": [],
-
-        # Tower constituent features
-        "tower_et": [],
-        "tower_eta": [],
-        "tower_phi": [],
-        "tower_energy": [],
-        "tower_t": [],
-        "tower_eem": [],
-        "tower_ehad": [],
-        "n_towers": [],
+        # Event level & reconstructed objects metadata
+        "event_number": [],
+        "l1_pt": [], "l1_eta": [], "l1_phi": [], "l1_charge": [], "l1_flavor": [],
+        "l2_pt": [], "l2_eta": [], "l2_phi": [], "l2_charge": [], "l2_flavor": [],
+        "j1_pt": [], "j1_eta": [], "j1_phi": [], "j1_mass": [],
+        "j2_pt": [], "j2_eta": [], "j2_phi": [], "j2_mass": [],
+        "met_et": [], "met_phi": [],
+        
+        # Flattened EFlow constituent particles list per event
+        "part_pt": [],
+        "part_eta": [],
+        "part_phi": [],
+        "part_charge": [],
+        "part_type": [],  # 0: EFlowTrack, 1: EFlowPhoton, 2: EFlowNeutralHadron
+        "part_pid": [],   # PID for Track, 22 for Photon, 130 for NeutralHadron
+        "n_particles": [],
     }
 
 
@@ -99,6 +92,7 @@ def _extract_features(
         CUT_STAGE["jet"]: 0,
     }
     diagnostics = {}
+    branch_names = set(b.GetName() for b in tree.GetListOfBranches())
 
     event_iter = tqdm(
         range(n_loop),
@@ -121,85 +115,129 @@ def _extract_features(
         if stage < 3:
             continue
 
-        # Extract Track info
-        track_pts = []
-        track_etas = []
-        track_phis = []
-        track_charges = []
-        track_xs = []
-        track_ys = []
-        track_zs = []
-        track_ts = []
-        track_masses = []
-        track_pids = []
+        # Extract reconstructed level objects
+        leptons = objs["leptons"]
+        l1_p4 = leptons[0]["p4"]
+        l2_p4 = leptons[1]["p4"]
+        l1_flavor = 0 if leptons[0]["flavor"] == "e" else 1 # 0: e, 1: mu
+        l2_flavor = 0 if leptons[1]["flavor"] == "e" else 1
+        
+        j1_p4 = objs["jets"][0]
+        j2_p4 = objs["jets"][1]
+        
+        met = objs["met"]
 
-        n_tr = int(tree.Track.GetEntries())
-        for tr_idx in range(n_tr):
-            tr = tree.Track.At(tr_idx)
-            track_pts.append(float(tr.PT))
-            track_etas.append(float(tr.Eta))
-            track_phis.append(float(tr.Phi))
-            track_charges.append(int(tr.Charge))
-            track_xs.append(float(tr.X))
-            track_ys.append(float(tr.Y))
-            track_zs.append(float(tr.Z))
-            track_ts.append(float(tr.T))
-            track_masses.append(float(tr.Mass))
-            track_pids.append(int(tr.PID))
+        # Collect all EFlow constituent particles
+        event_particles = []
 
-        features["track_pt"].append(track_pts)
-        features["track_eta"].append(track_etas)
-        features["track_phi"].append(track_phis)
-        features["track_charge"].append(track_charges)
-        features["track_x"].append(track_xs)
-        features["track_y"].append(track_ys)
-        features["track_z"].append(track_zs)
-        features["track_t"].append(track_ts)
-        features["track_mass"].append(track_masses)
-        features["track_pid"].append(track_pids)
-        features["n_tracks"].append(n_tr)
+        # 1. EFlowTrack (type 0)
+        if "EFlowTrack" in branch_names:
+            n_tr = tree.EFlowTrack.GetEntries()
+            for tr_idx in range(n_tr):
+                tr = tree.EFlowTrack.At(tr_idx)
+                event_particles.append({
+                    "pt": float(tr.PT),
+                    "eta": float(tr.Eta),
+                    "phi": float(tr.Phi),
+                    "charge": int(tr.Charge),
+                    "type": 0,
+                    "pid": int(tr.PID),
+                })
 
-        # Extract Tower info
-        tower_ets = []
-        tower_etas = []
-        tower_phis = []
-        tower_energies = []
-        tower_ts = []
-        tower_eems = []
-        tower_ehads = []
+        # 2. EFlowPhoton (type 1)
+        if "EFlowPhoton" in branch_names:
+            n_ph = tree.EFlowPhoton.GetEntries()
+            for ph_idx in range(n_ph):
+                ph = tree.EFlowPhoton.At(ph_idx)
+                event_particles.append({
+                    "pt": float(ph.ET),
+                    "eta": float(ph.Eta),
+                    "phi": float(ph.Phi),
+                    "charge": 0,
+                    "type": 1,
+                    "pid": 22,
+                })
 
-        n_tow = int(tree.Tower.GetEntries())
-        for tow_idx in range(n_tow):
-            tow = tree.Tower.At(tow_idx)
-            tower_ets.append(float(tow.ET))
-            tower_etas.append(float(tow.Eta))
-            tower_phis.append(float(tow.Phi))
-            tower_energies.append(float(tow.E))
-            tower_ts.append(float(tow.T))
-            tower_eems.append(float(tow.Eem))
-            tower_ehads.append(float(tow.Ehad))
+        # 3. EFlowNeutralHadron (type 2)
+        if "EFlowNeutralHadron" in branch_names:
+            n_nh = tree.EFlowNeutralHadron.GetEntries()
+            for nh_idx in range(n_nh):
+                nh = tree.EFlowNeutralHadron.At(nh_idx)
+                event_particles.append({
+                    "pt": float(nh.ET),
+                    "eta": float(nh.Eta),
+                    "phi": float(nh.Phi),
+                    "charge": 0,
+                    "type": 2,
+                    "pid": 130,
+                })
 
-        features["tower_et"].append(tower_ets)
-        features["tower_eta"].append(tower_etas)
-        features["tower_phi"].append(tower_phis)
-        features["tower_energy"].append(tower_energies)
-        features["tower_t"].append(tower_ts)
-        features["tower_eem"].append(tower_eems)
-        features["tower_ehad"].append(tower_ehads)
-        features["n_towers"].append(n_tow)
+        # Sort particles by pt/et descending
+        event_particles.sort(key=lambda x: x["pt"], reverse=True)
+
+        # Store to features dict
+        features["event_number"].append(int(i_start + i))
+        
+        features["l1_pt"].append(float(l1_p4.Pt()))
+        features["l1_eta"].append(float(l1_p4.Eta()))
+        features["l1_phi"].append(float(l1_p4.Phi()))
+        features["l1_charge"].append(int(leptons[0]["charge"]))
+        features["l1_flavor"].append(int(l1_flavor))
+        
+        features["l2_pt"].append(float(l2_p4.Pt()))
+        features["l2_eta"].append(float(l2_p4.Eta()))
+        features["l2_phi"].append(float(l2_p4.Phi()))
+        features["l2_charge"].append(int(leptons[1]["charge"]))
+        features["l2_flavor"].append(int(l2_flavor))
+
+        features["j1_pt"].append(float(j1_p4.Pt()))
+        features["j1_eta"].append(float(j1_p4.Eta()))
+        features["j1_phi"].append(float(j1_p4.Phi()))
+        features["j1_mass"].append(float(j1_p4.M()))
+
+        features["j2_pt"].append(float(j2_p4.Pt()))
+        features["j2_eta"].append(float(j2_p4.Eta()))
+        features["j2_phi"].append(float(j2_p4.Phi()))
+        features["j2_mass"].append(float(j2_p4.M()))
+
+        features["met_et"].append(float(met.MET))
+        features["met_phi"].append(float(met.Phi))
+
+        features["part_pt"].append([p["pt"] for p in event_particles])
+        features["part_eta"].append([p["eta"] for p in event_particles])
+        features["part_phi"].append([p["phi"] for p in event_particles])
+        features["part_charge"].append([p["charge"] for p in event_particles])
+        features["part_type"].append([p["type"] for p in event_particles])
+        features["part_pid"].append([p["pid"] for p in event_particles])
+        features["n_particles"].append(len(event_particles))
 
     return features, cutflow, diagnostics
 
 
 def _features_to_table(features: dict[str, list]) -> pa.Table:
     table_dict: dict[str, pa.Array] = {}
+    scalar_ints = {"event_number", "l1_charge", "l1_flavor", "l2_charge", "l2_flavor", "n_particles"}
+    scalar_floats = {
+        "l1_pt", "l1_eta", "l1_phi", 
+        "l2_pt", "l2_eta", "l2_phi", 
+        "j1_pt", "j1_eta", "j1_phi", "j1_mass",
+        "j2_pt", "j2_eta", "j2_phi", "j2_mass",
+        "met_et", "met_phi"
+    }
+    list_ints = {"part_type", "part_charge", "part_pid"}
+    list_floats = {"part_pt", "part_eta", "part_phi"}
+
     for key, val in features.items():
-        if key in {"n_tracks", "n_towers"}:
+        if key in scalar_ints:
             table_dict[key] = pa.array(val, type=pa.int32())
-        elif key in {"track_charge", "track_pid"}:
+        elif key in scalar_floats:
+            table_dict[key] = pa.array(val, type=pa.float32())
+        elif key in list_ints:
             table_dict[key] = pa.array(val, type=pa.list_(pa.int32()))
-        else:
+        elif key in list_floats:
             table_dict[key] = pa.array(val, type=pa.list_(pa.float32()))
+        else:
+            table_dict[key] = pa.array(val)
 
     return pa.Table.from_pydict(table_dict)
 
@@ -341,10 +379,14 @@ def _export_parquet_parallel(
 
 
 def _validate_features(features: dict[str, list], n_passed: int):
-    # Fail fast for data integrity: required columns exist and row counts agree.
     required_columns = {
-        "track_pt", "track_eta", "track_phi", "track_charge", "track_x", "track_y", "track_z", "track_t", "track_mass", "track_pid", "n_tracks",
-        "tower_et", "tower_eta", "tower_phi", "tower_energy", "tower_t", "tower_eem", "tower_ehad", "n_towers",
+        "event_number",
+        "l1_pt", "l1_eta", "l1_phi", "l1_charge", "l1_flavor",
+        "l2_pt", "l2_eta", "l2_phi", "l2_charge", "l2_flavor",
+        "j1_pt", "j1_eta", "j1_phi", "j1_mass",
+        "j2_pt", "j2_eta", "j2_phi", "j2_mass",
+        "met_et", "met_phi",
+        "part_pt", "part_eta", "part_phi", "part_charge", "part_type", "part_pid", "n_particles",
     }
 
     missing = sorted(required_columns - set(features.keys()))
@@ -360,7 +402,7 @@ def _validate_features(features: dict[str, list], n_passed: int):
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Export SR-passed Delphes events Track & Tower constituents to a Parquet file.",
+        description="Export SR-passed Delphes events EFlow constituents to a Parquet file.",
     )
     parser.add_argument("--input-root", required=True, help="Path to input ROOT file.")
     parser.add_argument("--tree", default="Delphes", help="TTree name (default: Delphes).")
@@ -381,7 +423,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--workers",
         type=int,
-        default=32,
+        default=4,
         help="Number of worker processes for chunked export. 0 means auto.",
     )
     parser.add_argument(
@@ -401,7 +443,6 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = _build_arg_parser().parse_args()
 
-    # Resolve user paths once so behavior is independent of current working directory.
     input_path = Path(args.input_root).resolve()
     output_path = Path(args.output_parquet).resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -465,7 +506,6 @@ def main() -> int:
         finally:
             f.Close()
 
-    # Sidecar metadata supports reproducibility/debugging without opening Parquet.
     sidecar = {
         "input_root": str(input_path),
         "tree": args.tree,
