@@ -26,6 +26,16 @@ from config import TASK_DEFINITIONS
 # HELPER FUNCTIONS
 # ============================================================================
 
+KNOWN_PROCESS_NAMES = [
+    "WWjj_EW_LL_WW_cmf",
+    "WWjj_EW_LT_WW_cmf",
+    "WWjj_EW_TT_WW_cmf",
+    "WWjj_EW",
+    "WWjj_QCD",
+    "WZjj_EW",
+    "WZjj_QCD",
+]
+
 def parse_process_name_from_filename(filename: str) -> str:
     """
     Extract process name from Parquet filename.
@@ -34,6 +44,7 @@ def parse_process_name_from_filename(filename: str) -> str:
         "WWjj_EW-LL-WW_cmf_run_01_sr.parquet" -> "WWjj_EW_LL_WW_cmf"
         "WWjj_QCD_run_01_sr.parquet" -> "WWjj_QCD"
         "amd_WWjj_EW_LL_WW_cmf_10001_sr.parquet" -> "WWjj_EW_LL_WW_cmf"
+        "WWjj_EW_LL_WW_cmf_WWjj_EW_LL_WW_cmf_10001_lowlevel_constituent_sr.parquet" -> "WWjj_EW_LL_WW_cmf"
     
     Args:
         filename: Parquet filename (without directory)
@@ -42,15 +53,19 @@ def parse_process_name_from_filename(filename: str) -> str:
         Normalized process name
     """
     import re
-    # Remove extension
+    normalized = filename.replace("-", "_")
+    
+    # Check known process names from longest to shortest
+    for kn in sorted(KNOWN_PROCESS_NAMES, key=len, reverse=True):
+        if kn in normalized:
+            return kn
+            
+    # Fallback legacy regex logic
     name = filename.replace(".parquet", "")
-    # Remove leading amd_ prefix if present
     if name.startswith("amd_"):
         name = name[4:]
-    # Remove run info (_run_01) or job ID (_10001) and _sr suffix
     name = name.split("_run_")[0]
-    name = re.sub(r'(_\d{4,6})?(_sr|_constituent_sr)?$', '', name)
-    # Replace hyphens with underscores for consistency
+    name = re.sub(r'(_\d{4,6})?(_sr|_constituent_sr|_lowlevel.*)?$', '', name)
     name = name.replace("-", "_")
     return name
 

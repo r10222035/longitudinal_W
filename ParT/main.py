@@ -410,6 +410,12 @@ def main():
         default=None,
         help="Random seed for dataset subsampling"
     )
+    parser.add_argument(
+        "--timestamp",
+        type=str,
+        default=None,
+        help="Timestamp string or 'auto' to prepend YYYYMMDD_HHMMSS to top-level output directory under results"
+    )
 
     args = parser.parse_args()
 
@@ -430,8 +436,28 @@ def main():
         },
     )
 
+    # Format output directory with top-level timestamp if requested
+    raw_output_dir = Path(config.output_dir)
+    timestamp_str = args.timestamp
+    if timestamp_str == "auto":
+        timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if timestamp_str:
+        parts = list(raw_output_dir.parts)
+        if "results" in parts:
+            idx = parts.index("results")
+            if idx + 1 < len(parts):
+                top_folder = parts[idx + 1]
+                # Avoid duplicating timestamp if already present
+                if not (len(top_folder) >= 15 and top_folder[:8].isdigit() and top_folder[8] == "_"):
+                    parts[idx + 1] = f"{timestamp_str}_{top_folder}"
+        else:
+            if not (len(parts[0]) >= 15 and parts[0][:8].isdigit() and parts[0][8] == "_"):
+                parts[0] = f"{timestamp_str}_{parts[0]}"
+        raw_output_dir = Path(*parts)
+
     # Align with the directory naming structure of DNN
-    config.output_dir = str(Path(config.output_dir) / config.weight_strategy)
+    config.output_dir = str(raw_output_dir / config.weight_strategy)
 
     # Determine device
     if args.gpu and torch.cuda.is_available():

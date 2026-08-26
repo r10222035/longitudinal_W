@@ -95,36 +95,38 @@ class ParTFoldDataset(Dataset):
             self.num_channels = num_channels
 
         # Check if features are already loaded and processed in global cache
-        cache_key = (process_name, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met, use_mass)
+        cache_key = (process_name, pt_log_scale, max_particles, num_channels, clean_duplicates, use_met, use_mass, dataset_fraction, dataset_seed)
         
         if cache_key not in _GLOBAL_DATA_CACHE:
             print(f"Loading Parquet files for process '{process_name}' (First time, caching)...")
             df = load_and_merge_parquet(parquet_file_paths)
-            print(f"  Loaded {len(df)} events")
+            n_events_raw = len(df)
+            print(f"  Loaded {n_events_raw} raw events")
             
-            event_numbers = np.arange(len(df))
+            # Apply dataset_fraction subsampling BEFORE reconstruct_sequence for massive speedup
+            if 0.0 < dataset_fraction < 1.0:
+                n_sampled = max(1, int(round(n_events_raw * dataset_fraction)))
+                rng = np.random.RandomState(dataset_seed)
+                perm = rng.permutation(n_events_raw)[:n_sampled]
+                perm = np.sort(perm)
+                df = df.iloc[perm].reset_index(drop=True)
+                event_numbers = perm
+                print(f"  Subsampled ({dataset_fraction*100:.0f}%): {len(df)} events")
+            else:
+                event_numbers = np.arange(n_events_raw)
+            
             features = self.reconstruct_sequence(df, pt_log_scale)
             
             _GLOBAL_DATA_CACHE[cache_key] = {
                 "features": features,
                 "event_numbers": event_numbers,
-                "n_events": len(df)
+                "n_events": len(event_numbers)
             }
             
         cache = _GLOBAL_DATA_CACHE[cache_key]
         all_features = cache["features"]
         all_event_numbers = cache["event_numbers"]
         n_events = cache["n_events"]
-
-        # Apply dataset_fraction subsampling if dataset_fraction < 1.0
-        if 0.0 < dataset_fraction < 1.0:
-            n_sampled = max(1, int(round(n_events * dataset_fraction)))
-            rng = np.random.RandomState(dataset_seed)
-            perm = rng.permutation(n_events)[:n_sampled]
-            perm = np.sort(perm)
-            all_features = all_features[perm]
-            all_event_numbers = all_event_numbers[perm]
-            n_events = len(all_event_numbers)
 
         # Fold splitting logic
         test_mask = (all_event_numbers - i_fold) % 5 == 0
@@ -186,40 +188,52 @@ class ParTFoldDataset(Dataset):
                 raw_met_et = df["met_et"].values
                 raw_met_phi = df["met_phi"].values
             
+            # Check if this is low-level EFlow constituent data (raw_tags is None)
+            is_eflow_lowlevel = (raw_tags is None)
+            
             for i in range(N):
-                p_pt = np.array(raw_pts[i], dtype=np.float32)
+                p_pt = raw_pts[i]
                 n_p = len(p_pt)
                 if n_p == 0 and not use_met:
                     continue
                     
-                p_eta = np.array(raw_etas[i], dtype=np.float32)
-                p_phi = np.array(raw_phis[i], dtype=np.float32)
-                p_type = np.array(raw_types[i], dtype=np.int32)
-                p_tag = np.array(raw_tags[i], dtype=np.int32) if raw_tags is not None else np.zeros(n_p, dtype=np.int32)
+                p_eta = raw_etas[i]
+                p_phi = raw_phis[i]
+                p_type = raw_types[i]
+                p_tag = raw_tags[i] if raw_tags is not None else None
                 
-                keep_mask = np.ones(n_p, dtype=bool)
-                
-                if clean_duplicates and n_p > 0:
-                    lep_mask = (p_tag == 0) | (p_tag == 1) | (p_type == 2) | (p_type == 3)
+                if clean_duplicates and n_p > 0 and not is_eflow_lowlevel:
+                    p_pt_arr = np.array(p_pt, dtype=np.float32)
+                    p_eta_arr = np.array(p_eta, dtype=np.float32)
+                    p_phi_arr = np.array(p_phi, dtype=np.float32)
+                    p_type_arr = np.array(p_type, dtype=np.int32)
+                    p_tag_arr = np.array(p_tag, dtype=np.int32)
+                    
+                    keep_mask = np.ones(n_p, dtype=bool)
+                    lep_mask = (p_tag_arr == 0) | (p_tag_arr == 1) | (p_type_arr == 2) | (p_type_arr == 3)
                     lep_indices = np.where(lep_mask)[0]
                     other_indices = np.where(~lep_mask)[0]
                     
                     for l_idx in lep_indices:
-                        l_eta, l_phi = p_eta[l_idx], p_phi[l_idx]
-                        deta = p_eta[other_indices] - l_eta
-                        dphi = p_phi[other_indices] - l_phi
+                        l_eta, l_phi = p_eta_arr[l_idx], p_phi_arr[l_idx]
+                        deta = p_eta_arr[other_indices] - l_eta
+                        dphi = p_phi_arr[other_indices] - l_phi
                         dphi = (dphi + np.pi) % (2 * np.pi) - np.pi
                         dr2 = deta**2 + dphi**2
-                        
-                        # dr < 0.05 (dr2 < 0.0025)
                         discard_indices = other_indices[dr2 < 0.0025]
                         keep_mask[discard_indices] = False
                         
-                filtered_pt = p_pt[keep_mask]
-                filtered_eta = p_eta[keep_mask]
-                filtered_phi = p_phi[keep_mask]
-                filtered_type = p_type[keep_mask]
-                filtered_tag = p_tag[keep_mask]
+                    filtered_pt = p_pt_arr[keep_mask]
+                    filtered_eta = p_eta_arr[keep_mask]
+                    filtered_phi = p_phi_arr[keep_mask]
+                    filtered_type = p_type_arr[keep_mask]
+                    filtered_tag = p_tag_arr[keep_mask]
+                else:
+                    filtered_pt = p_pt
+                    filtered_eta = p_eta
+                    filtered_phi = p_phi
+                    filtered_type = p_type
+                    filtered_tag = p_tag
                 
                 n_filtered = len(filtered_pt)
                 if use_met:
@@ -228,43 +242,45 @@ class ParTFoldDataset(Dataset):
                     n_to_fill = min(n_filtered, max_particles)
                 
                 if n_to_fill > 0:
+                    pt_slice = np.array(filtered_pt[:n_to_fill], dtype=np.float32)
                     if pt_log_scale:
-                        features[i, :n_to_fill, 0] = np.log(np.maximum(filtered_pt[:n_to_fill], 1e-3))
+                        features[i, :n_to_fill, 0] = np.log(np.maximum(pt_slice, 1e-3))
                     else:
-                        features[i, :n_to_fill, 0] = filtered_pt[:n_to_fill]
+                        features[i, :n_to_fill, 0] = pt_slice
                         
-                    features[i, :n_to_fill, 1] = filtered_eta[:n_to_fill]
+                    features[i, :n_to_fill, 1] = np.array(filtered_eta[:n_to_fill], dtype=np.float32)
                     
                     lead_phi = filtered_phi[0]
-                    features[i, :n_to_fill, 2] = (filtered_phi[:n_to_fill] - lead_phi + np.pi) % (2 * np.pi) - np.pi
+                    phi_slice = np.array(filtered_phi[:n_to_fill], dtype=np.float32)
+                    features[i, :n_to_fill, 2] = (phi_slice - lead_phi + np.pi) % (2 * np.pi) - np.pi
                     
-                    # Zero out all one-hot channels for active particles to prevent NaNs in unused channels (e.g. MET channel)
+                    # Zero out all one-hot channels for active particles to prevent NaNs
                     features[i, :n_to_fill, 3:] = 0.0
+                    
+                    type_slice = np.array(filtered_type[:n_to_fill], dtype=np.int32)
+                    tag_slice = np.array(filtered_tag[:n_to_fill], dtype=np.int32) if filtered_tag is not None else None
                     
                     # Fill one-hot encodings based on raw channel configurations
                     if raw_num_channels == 4:
                         for c in range(4):
-                            features[i, :n_to_fill, 3 + c] = (filtered_type[:n_to_fill] == c).astype(np.float32)
-                    elif raw_num_channels == 5:
+                            features[i, :n_to_fill, 3 + c] = (type_slice == c).astype(np.float32)
+                    elif raw_num_channels == 5 and tag_slice is not None:
                         for t in range(5):
-                            features[i, :n_to_fill, 3 + t] = (filtered_tag[:n_to_fill] == t).astype(np.float32)
-                    elif raw_num_channels == 9:
+                            features[i, :n_to_fill, 3 + t] = (tag_slice == t).astype(np.float32)
+                    elif raw_num_channels == 9 and tag_slice is not None:
                         if use_met:
                             for c in range(4):
-                                features[i, :n_to_fill, 3 + c] = (filtered_type[:n_to_fill] == c).astype(np.float32)
+                                features[i, :n_to_fill, 3 + c] = (type_slice == c).astype(np.float32)
                             for t in range(5):
-                                features[i, :n_to_fill, 8 + t] = (filtered_tag[:n_to_fill] == t).astype(np.float32)
+                                features[i, :n_to_fill, 8 + t] = (tag_slice == t).astype(np.float32)
                         else:
                             for c in range(4):
-                                features[i, :n_to_fill, 3 + c] = (filtered_type[:n_to_fill] == c).astype(np.float32)
+                                features[i, :n_to_fill, 3 + c] = (type_slice == c).astype(np.float32)
                             for t in range(5):
-                                features[i, :n_to_fill, 7 + t] = (filtered_tag[:n_to_fill] == t).astype(np.float32)
+                                features[i, :n_to_fill, 7 + t] = (tag_slice == t).astype(np.float32)
                     else:
                         for c in range(min(raw_num_channels, 4)):
-                            features[i, :n_to_fill, 3 + c] = (filtered_type[:n_to_fill] == c).astype(np.float32)
-                        if raw_num_channels > 4:
-                            for t in range(min(raw_num_channels - 4, 5)):
-                                features[i, :n_to_fill, 7 + t] = (filtered_tag[:n_to_fill] == t).astype(np.float32)
+                            features[i, :n_to_fill, 3 + c] = (type_slice == c).astype(np.float32)
 
                 # Fill MET as pseudo-particle
                 if use_met:
