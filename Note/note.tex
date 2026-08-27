@@ -1999,17 +1999,16 @@
 	\subsection{Event Scaling and Sample Size Dependence}% (fold)
 	\label{sub:event_scaling_and_sample_size_dependence}
 
-		To evaluate the impact of training sample size on the classification performance of the ParT, we conduct an event scaling experiment using the High-Level input feature set. The total Monte Carlo dataset is subsampled into five representative fractions: $100\%$, $50\%$, $25\%$, $10\%$, and $5\%$.
+		To evaluate the impact of training sample size on the classification performance of the ParT, we conduct event scaling experiments for both High-Level and Low-Level input feature representations. The total Monte Carlo dataset is subsampled into five representative fractions: $100\%$, $50\%$, $25\%$, $10\%$, and $5\%$.
 
-		\subsubsection{Experimental Setup and Subsampling Strategy}
+		\subsubsection{High-Level Event Scaling}% (fold)
+		\label{subs:high_level_event_scaling}
 
-			The scaling experiment is evaluated on Fold 0 across the three classification tasks: inclusive EW $W^\pm W^\pm$ vs. Bkg, LL vs. TX, and LX vs. TT. Models are trained using the \texttt{ParT\_Light} architecture with logarithmic $p_{\text{T}}$ scaling, hybrid event weighting, and an early stopping patience of $10$ epochs.
+			The High-Level scaling experiment is evaluated on Fold 0 across the three classification tasks: inclusive EW $W^\pm W^\pm$ vs. Bkg, LL vs. TX, and LX vs. TT. Models are trained using the \texttt{ParT\_Light} architecture with hybrid event weighting, and an early stopping patience of $10$ epochs.
 
 			To eliminate random fluctuations introduced by sampling different event populations, the subsampling procedure enforces a nested subset property. Smaller sample fractions are constructed as strict subsets of larger fractions. Consequently, performance variations across sample sizes strictly reflect the influence of available training statistics.
 
-		\subsubsection{Performance Scaling and Physical Insights}
-
-			Figure~\ref{fig:part_event_scaling_curve} presents the test AUC scores evaluated on Fold 0 as a function of the total event count across the three classification tasks.
+			Figure~\ref{fig:part_event_scaling_curve} presents the test AUC scores evaluated on Fold 0 as a function of the total event count across the three classification tasks for High-Level features.
 
 			\begin{figure}[htbp]
 				\centering
@@ -2025,9 +2024,27 @@
 				\item \textbf{Steady Growth in Inclusive Classification (EW vs. Bkg):} For the inclusive signal vs. background task, the test AUC exhibits a steady improvement from $0.7235$ at $5\%$ to $0.7613$ at $100\%$, yielding a $+3.78\%$ increase.
 			\end{itemize}
 
-		\subsubsection{Saturation Assessment}
+			As shown in Figure~\ref{fig:part_event_scaling_curve}, the AUC trajectory for the polarization tasks maintains an upward slope up to $1.40\text{M}$ events, indicating that performance has not yet reached saturation.
 
-			As shown in Figure~\ref{fig:part_event_scaling_curve}, the AUC trajectory for the polarization tasks maintains a upward slope up to the $1.40\text{M}$ events, indicating that performance has not yet reached saturation. This demonstrates that expanding the simulated Monte Carlo sample size offers substantial potential for improving polarization measurement sensitivity.
+		% subsubsection high_level_event_scaling (end)
+
+		\subsubsection{Low-Level Event Scaling}% (fold)
+		\label{subs:low_level_event_scaling}
+
+			The Low-Level scaling experiment evaluates the impact of dataset size when using energy-flow (EFlow) constituent particles. Each constituent is represented by a 6-dimensional feature vector: 3 spatial kinematics ($\ln p_{\text{T}}$, $\eta$, $\phi$) and 3 one-hot particle category channels (\texttt{EFlowTrack}, \texttt{EFlowPhoton}, and \texttt{EFlowNeutralHadron}). Models are trained using the \texttt{ParT\_Light} architecture with a sequence length of $N_{\text{max}} = 256$ and a batch size of 128.
+
+			Figure~\ref{fig:part_lowlevel_event_scaling_curve} presents the test AUC scores evaluated on Fold 0 as a function of the total event count across the three classification tasks for Low-Level features.
+
+			\begin{figure}[htbp]
+				\centering
+				\includegraphics[width=0.7\textwidth]{part_lowlevel_event_scaling_curve.pdf}
+				\caption{Test AUC performance as a function of total event count for the three classification tasks evaluated on Fold 0 using the Low-Level EFlow ParT model.}
+				\label{fig:part_lowlevel_event_scaling_curve}
+			\end{figure}
+
+             For the inclusive EW $W^\pm W^\pm$ vs. Bkg task, the test AUC represents a substantial improvement of $+20.33\%$. The Transformer model effectively utilizes global constituent multiplicity and spatial radiation patterns, which require larger event statistics to fully converge.
+
+		% subsubsection low_level_event_scaling (end)
 
 	% subsection event_scaling_and_sample_size_dependence (end)
 
