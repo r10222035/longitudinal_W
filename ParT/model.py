@@ -70,61 +70,33 @@ def prepare_interaction(x: torch.Tensor, pt_log_scale: bool = True, interaction_
 
 
 class ParticleFeatureEmbedding(nn.Module):
-    """Embedding network for individual particle features.
-
-    Separately embeds continuous particle kinematics (taking 3/4 of embed_dim)
-    and particle type features (taking 1/4 of embed_dim), then concatenates them
-    into a total embed_dim token representation.
-    Example:
-      embed_dim = 32 -> continuous: 24, type: 8
-      embed_dim = 64 -> continuous: 48, type: 16
-    """
+    """Embedding network for individual particle features (Joint Linear Embedding)."""
 
     def __init__(
         self,
-        kinematic_dim: int,
-        num_channels: int,
+        input_dim: int,
         embed_dim: int = 64,
         fc_dim: int = 256,
     ):
         super().__init__()
-        self.kinematic_dim = kinematic_dim
-        self.num_channels = num_channels
+        self.input_dim = input_dim
+        self.embed_dim = embed_dim
 
-        # Type embedding takes 1/4 of total embed_dim, continuous kinematics takes 3/4
-        self.type_embed_dim = max(1, embed_dim // 4)
-        self.continuous_embed_dim = embed_dim - self.type_embed_dim
-
-        # 1. Continuous particle kinematics embedding (3/4 of total embed_dim)
-        kin_layers = [
-            nn.LayerNorm(kinematic_dim),
-            nn.Linear(kinematic_dim, fc_dim),
+        layers = [
+            nn.LayerNorm(input_dim),
+            nn.Linear(input_dim, fc_dim),
             nn.GELU(),
             nn.LayerNorm(fc_dim),
-            nn.Linear(fc_dim, self.continuous_embed_dim),
+            nn.Linear(fc_dim, embed_dim),
             nn.GELU(),
         ]
-        self.continuous_network = nn.Sequential(*kin_layers)
-
-        # 2. Type information embedding (1/4 of total embed_dim)
-        self.type_network = nn.Sequential(
-            nn.LayerNorm(num_channels),
-            nn.Linear(num_channels, self.type_embed_dim),
-            nn.GELU(),
-        )
-
-        self.out_dim = self.continuous_embed_dim + self.type_embed_dim
+        self.network = nn.Sequential(*layers)
+        self.out_dim = embed_dim
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Input shape: (N, L, kinematic_dim + num_channels)
-        x_kin = x[..., : self.kinematic_dim]
-        x_type = x[..., self.kinematic_dim :]
+        # Input shape: (N, L, input_dim) -> Output shape: (N, L, embed_dim)
+        return self.network(x)
 
-        emb_kin = self.continuous_network(x_kin)  # (N, L, 3/4 * embed_dim)
-        emb_type = self.type_network(x_type)      # (N, L, 1/4 * embed_dim)
-
-        # Concatenate continuous particle kinematics and type embeddings (N, L, embed_dim)
-        return torch.cat([emb_kin, emb_type], dim=-1)
 
 
 class InteractionMatrixEmbedding(nn.Module):
@@ -304,9 +276,7 @@ class AttentionBlock(nn.Module):
 
 
 class ParticleTransformer(nn.Module):
-    """Standard Particle Transformer module with separate particle kinematics (3/4 embed_dim)
-    and type (1/4 embed_dim) embeddings concatenated into full embed_dim token representation.
-    """
+    """Standard Particle Transformer module with joint particle kinematics and type embedding."""
 
     def __init__(self, score_dim: int, parameters: dict):
         super().__init__()
@@ -315,8 +285,7 @@ class ParticleTransformer(nn.Module):
         self.pt_log_scale = parameters.get('pt_log_scale', True)
         self.interaction_type = parameters.get('interaction_type', 'default')
 
-        kinematic_dim = parameters.get('kinematic_dim', 4 if parameters.get('use_mass', False) else 3)
-        num_channels = parameters.get('num_channels', parameters['ParEmbed']['input_dim'] - kinematic_dim)
+        input_dim = parameters['ParEmbed']['input_dim']
         
         # Get target embed_dim (e.g. 32 for micro, 64 for light/wide/deep)
         embed_dim_cfg = parameters['ParEmbed']['embed_dim']
@@ -327,10 +296,9 @@ class ParticleTransformer(nn.Module):
 
         fc_dim = parameters['ParAtteBlock'].get('fc_dim', 256)
 
-        # Particle Feature Embedding (continuous: 3/4 embed_dim, type: 1/4 embed_dim)
+        # Joint Particle Feature Embedding
         self.par_embedding = ParticleFeatureEmbedding(
-            kinematic_dim=kinematic_dim,
-            num_channels=num_channels,
+            input_dim=input_dim,
             embed_dim=target_embed_dim,
             fc_dim=fc_dim,
         )
@@ -389,7 +357,7 @@ class ParticleTransformer(nn.Module):
         u = prepare_interaction(coords, pt_log_scale=self.pt_log_scale, interaction_type=self.interaction_type)  # (N, 3, L, L)
         attn_mask = self.inter_embedding(u)  # (N, num_heads, L, L)
 
-        # Particle Embedding (Separately embeds kinematics -> 3/4 and type -> 1/4, concat -> full embed_dim)
+        # Joint Particle Feature Embedding
         x = self.par_embedding(x)  # (N, L, E)
 
         # Particle Self-Attention blocks (passing attn_mask)
@@ -554,11 +522,11 @@ if __name__ == "__main__":
     from types import SimpleNamespace
 
     # Test forward pass with mock data
-    print("Testing PyTorch Particle Transformer (ParT) models with 3/4 + 1/4 Embeddings...")
+    print("Testing PyTorch Particle Transformer (ParT) models with Joint Linear Embeddings...")
     mock_input_32 = torch.randn(4, 5, 6)
     mock_input_64 = torch.randn(4, 5, 6)
 
-    # Test micro (embed_dim=32 -> kin:24, type:8)
+    # Test micro (embed_dim=32)
     micro_cfg = SimpleNamespace(
         model_structure="ParT_Light",
         interaction_type="eta_phi_dr",
@@ -573,9 +541,9 @@ if __name__ == "__main__":
     model_micro = create_model_from_config(micro_cfg, num_channels=3)
     out_micro = model_micro(mock_input_32)
     assert out_micro.shape == (4, 1)
-    print(f"  [PASS] exp_micro (embed_dim=32 -> kin:24, type:8) -> Output shape: {out_micro.shape}")
+    print(f"  [PASS] exp_micro (embed_dim=32) -> Output shape: {out_micro.shape}")
 
-    # Test light/wide/deep (embed_dim=64 -> kin:48, type:16)
+    # Test light/wide/deep (embed_dim=64)
     light_cfg = SimpleNamespace(
         model_structure="ParT_Light",
         interaction_type="eta_phi_dr",
@@ -590,6 +558,7 @@ if __name__ == "__main__":
     model_light = create_model_from_config(light_cfg, num_channels=3)
     out_light = model_light(mock_input_64)
     assert out_light.shape == (4, 1)
-    print(f"  [PASS] exp_light (embed_dim=64 -> kin:48, type:16) -> Output shape: {out_light.shape}")
+    print(f"  [PASS] exp_light (embed_dim=64) -> Output shape: {out_light.shape}")
 
-    print("\nAll dynamic 3/4 + 1/4 embedding model tests passed successfully!")
+    print("\nAll Joint Embedding model tests passed successfully!")
+
