@@ -1999,52 +1999,94 @@
 	\subsection{Event Scaling and Sample Size Dependence}% (fold)
 	\label{sub:event_scaling_and_sample_size_dependence}
 
-		To evaluate the impact of training sample size on the classification performance of the ParT, we conduct event scaling experiments for both High-Level and Low-Level input feature representations. The total Monte Carlo dataset is subsampled into five representative fractions: $100\%$, $50\%$, $25\%$, $10\%$, and $5\%$.
+		To evaluate the impact of training sample size on the classification performance of the ParT, we conduct event scaling experiments for both High-Level and Low-Level input feature representations. In both configurations, a joint feature embedding architecture is employed.
+
+		The total Monte Carlo dataset is subsampled into five representative fraction steps: $100\%$, $50\%$, $25\%$, $10\%$, and $5\%$. To eliminate random sampling fluctuations across sample size steps, the subsampling procedure enforces a nested subset hierarchy, where smaller sample fractions are strict subsets of larger ones.
 
 		\subsubsection{High-Level Event Scaling}% (fold)
 		\label{subs:high_level_event_scaling}
 
-			The High-Level scaling experiment is evaluated on Fold 0 across the three classification tasks: inclusive EW $W^\pm W^\pm$ vs. Bkg, LL vs. TX, and LX vs. TT. Models are trained using the \texttt{ParT\_Light} architecture with hybrid event weighting, and an early stopping patience of $10$ epochs.
+			The High-Level scaling experiment evaluates the classification performance across the three target tasks: inclusive EW $W^\pm W^\pm$ vs. Bkg, LL vs. TX, and LX vs. TT. Models are trained using the \texttt{ParT\_Light} architecture with hybrid event weighting and early stopping (patience $= 10$ epochs).
 
-			To eliminate random fluctuations introduced by sampling different event populations, the subsampling procedure enforces a nested subset property. Smaller sample fractions are constructed as strict subsets of larger fractions. Consequently, performance variations across sample sizes strictly reflect the influence of available training statistics.
+			Table~\ref{tab:part_highlevel_scaling_results} summarizes the performance metrics across total event count fractions for the High-Level feature representation.
 
-			Figure~\ref{fig:part_event_scaling_curve} presents the test AUC scores evaluated on Fold 0 as a function of the total event count across the three classification tasks for High-Level features.
+			\begin{table}[htbp]
+				\centering
+				\caption{Test AUC across total event count fractions ($5\%$, $10\%$, $25\%$, $50\%$, and $100\%$) for the High-Level ParT model.}
+				\label{tab:part_highlevel_scaling_results}
+				\begin{tabular}{l|ccccc}
+					\hline
+					\hline
+					Task & 5\% & 10\% & 25\% & 50\% & 100\% \\
+					\hline
+					EW vs. Bkg & 0.740 & 0.753 & 0.765 & 0.778 & 0.786 \\
+					LL vs. TX  & 0.805 & 0.814 & 0.817 & 0.822 & 0.826 \\
+					LX vs. TT  & 0.749 & 0.762 & 0.768 & 0.771 & 0.773 \\
+					\hline
+					\hline
+				\end{tabular}
+			\end{table}
+
+			Figure~\ref{fig:part_event_scaling_curve} presents the test AUC trajectory as a function of the total event count for the High-Level feature representation.
 
 			\begin{figure}[htbp]
 				\centering
 				\includegraphics[width=0.7\textwidth]{part_event_scaling_curve-high_level.pdf}
-				\caption{Test AUC performance as a function of total event count for the three classification tasks evaluated on Fold 0 using the High-Level ParT model.}
+				\caption{Test AUC performance as a function of total event count for the three classification tasks evaluated using the High-Level ParT model.}
 				\label{fig:part_event_scaling_curve}
 			\end{figure}
 
-			The results exhibit distinct scaling behaviors across the classification tasks:
-			\begin{itemize}
-				\item \textbf{High Sensitivity in Polarization Tasks (LL vs. TX and LX vs. TT):} Polarization separation demonstrates a strong dependence on dataset size. For the LL vs. TX task, the test AUC increases significantly from $0.7585$ at $5\%$ sample fraction to $0.8147$ at $100\%$, representing an absolute gain of $+5.62\%$. Similarly, for the LX vs. TT task, the test AUC grows from $0.7175$ to $0.7583$ ($+4.08\%$). Physically, the polarization states (LL, LT, TT) share identical final-state particles and production channels, differing only in subtle kinematic angular correlations. The neural network requires substantial statistics to extract these subtle high-level features effectively.
-
-				\item \textbf{Steady Growth in Inclusive Classification (EW vs. Bkg):} For the inclusive signal vs. background task, the test AUC exhibits a steady improvement from $0.7235$ at $5\%$ to $0.7613$ at $100\%$, yielding a $+3.78\%$ increase.
-			\end{itemize}
-
-			As shown in Figure~\ref{fig:part_event_scaling_curve}, the AUC trajectory for the polarization tasks maintains an upward slope up to $1.40\text{M}$ events, indicating that performance has not yet reached saturation.
+			As shown in Table~\ref{tab:part_highlevel_scaling_results} and Figure~\ref{fig:part_event_scaling_curve}, the classification performance exhibits a steady upward trend as the sample size increases. For the LL vs. TX and LX vs. TT tasks, the test AUC increases from $0.805$ to $0.826$ and from $0.749$ to $0.773$, respectively. Similarly, for the inclusive EW vs. Bkg task, the test AUC increases from $0.740$ to $0.786$.
 
 		% subsubsection high_level_event_scaling (end)
 
 		\subsubsection{Low-Level Event Scaling}% (fold)
 		\label{subs:low_level_event_scaling}
 
-			The Low-Level scaling experiment evaluates the impact of dataset size when using energy-flow (EFlow) constituent particles. Each constituent is represented by a 6-dimensional feature vector: 3 spatial kinematics ($\ln p_{\text{T}}$, $\eta$, $\phi$) and 3 one-hot particle category channels (\texttt{EFlowTrack}, \texttt{EFlowPhoton}, and \texttt{EFlowNeutralHadron}). Models are trained using the \texttt{ParT\_Light} architecture with a sequence length of $N_{\text{max}} = 256$ and a batch size of 128.
+			The Low-Level scaling experiment evaluates the impact of dataset size when utilizing detector-level constituent particles with joint feature embedding.
 
-			Figure~\ref{fig:part_lowlevel_event_scaling_curve} presents the test AUC scores evaluated on Fold 0 as a function of the total event count across the three classification tasks for Low-Level features.
+			Table~\ref{tab:part_lowlevel_scaling_results} presents the performance results across total event count fractions for the Low-Level feature representation.
+
+			\begin{table}[htbp]
+				\centering
+				\caption{Test AUC across total event count fractions ($5\%$, $10\%$, $25\%$, $50\%$, and $100\%$) for the Low-Level ParT model.}
+				\label{tab:part_lowlevel_scaling_results}
+				\begin{tabular}{l|ccccc}
+					\hline
+					\hline
+					Task & 5\% & 10\% & 25\% & 50\% & 100\% \\
+					\hline
+					EW vs. Bkg & 0.804 & 0.869 & 0.935 & 0.945 & 0.948 \\
+					LL vs. TX  & 0.765 & 0.787 & 0.812 & 0.820 & 0.829 \\
+					LX vs. TT  & 0.504 & 0.508 & 0.527 & 0.518 & 0.774 \\
+					\hline
+					\hline
+				\end{tabular}
+			\end{table}
+
+			Figure~\ref{fig:part_lowlevel_event_scaling_curve} presents the test AUC trajectory for the Low-Level feature representation.
 
 			\begin{figure}[htbp]
 				\centering
 				\includegraphics[width=0.7\textwidth]{part_lowlevel_event_scaling_curve.pdf}
-				\caption{Test AUC performance as a function of total event count for the three classification tasks evaluated on Fold 0 using the Low-Level EFlow ParT model.}
+				\caption{Test AUC performance as a function of total event count for the three classification tasks evaluated using the Low-Level ParT model.}
 				\label{fig:part_lowlevel_event_scaling_curve}
 			\end{figure}
 
-             For the inclusive EW $W^\pm W^\pm$ vs. Bkg task, the test AUC represents a substantial improvement of $+20.33\%$. The Transformer model effectively utilizes global constituent multiplicity and spatial radiation patterns, which require larger event statistics to fully converge.
-
 		% subsubsection low_level_event_scaling (end)
+
+		\subsubsection{Comparative Scaling Synthesis and Physics Discussion}% (fold)
+		\label{subs:comparative_scaling_synthesis}
+
+			Comparing the High-Level (Table~\ref{tab:part_highlevel_scaling_results}) and Low-Level (Table~\ref{tab:part_lowlevel_scaling_results}) scaling results highlights two distinct physical behaviors:
+
+			\begin{enumerate}
+				\item \textbf{Inclusive EW vs. Background Discrimination:} The Low-Level ParT model achieves an exceptional test AUC of $0.948$ at $100\%$ sample fraction, outperforming the High-Level model. This improvement could be driven by constituent multiplicity and radiation patterns. Background QCD processes feature significantly higher track and tower multiplicities compared to electroweak signal processes, which the Low-Level attention mechanism effectively leverages.
+
+				\item \textbf{Polarization State Discrimination (LL vs. TX and LX vs. TT):} At full dataset capacity ($100\%$), both Low-Level and High-Level representations achieve comparable performance for LL vs. TX ($0.829$ vs. $0.826$) and LX vs. TT ($0.774$ vs. $0.773$). Because all polarization states are electroweak VBS processes with nearly identical constituent multiplicity distributions, polarization discrimination relies on extracting subtle angular and momentum correlations rather than global multiplicity signatures. Notably, Low-Level polarization separation exhibits a sharper dependency on sample size.
+			\end{enumerate}
+
+		% subsubsection comparative_scaling_synthesis (end)
 
 	% subsection event_scaling_and_sample_size_dependence (end)
 
