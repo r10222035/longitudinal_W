@@ -17,7 +17,10 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score, roc_curve
 import matplotlib.pyplot as plt
 
-from model import PolarizationDNN
+try:
+    from DNN.model import PolarizationDNN
+except ImportError:
+    from model import PolarizationDNN
 
 
 # ============================================================================

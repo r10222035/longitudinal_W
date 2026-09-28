@@ -4,7 +4,7 @@ Converted and adapted from TensorFlow reference implementation.
 """
 
 import math
-from typing import Any, List, Dict, Optional
+from typing import Any, List, Dict, Optional, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
@@ -439,11 +439,80 @@ class ParT_Light(ParticleTransformer):
         super().__init__(score_dim=1, parameters=hyperparameters)
 
 
-def create_model_from_config(config: Any, num_channels: int) -> ParticleTransformer:
-    """Factory function to build ParticleTransformer model directly from config object/dict,
+class MultiHeadParticleTransformer(ParticleTransformer):
+    """Multi-Head Particle Transformer for joint EW vs BG and Polarization classification.
     
-    supporting ParT_Baseline and ParT_Light as bases with direct YAML hyperparameter overrides.
+    Shares the transformer backbone and class token, then branches into two independent MLP heads:
+    - head_ew: (N, E) -> (N, score_dim_ew) for EW vs BG
+    - head_pol: (N, E) -> (N, score_dim_pol) for Polarization (e.g. LL vs LT+TT)
     """
+
+    def __init__(
+        self,
+        parameters: dict,
+        score_dim_ew: int = 1,
+        score_dim_pol: int = 1,
+    ):
+        super().__init__(score_dim=score_dim_ew, parameters=parameters)
+        atte_embed_dim = self.par_embedding.out_dim
+
+        # Head 1: EW vs BG
+        self.fc_ew = nn.Sequential(
+            nn.Linear(atte_embed_dim, atte_embed_dim),
+            nn.ReLU(),
+            nn.Dropout(0.1)
+        )
+        self.final_layer_ew = nn.Linear(atte_embed_dim, score_dim_ew)
+
+        # Head 2: Polarization
+        self.fc_pol = nn.Sequential(
+            nn.Linear(atte_embed_dim, atte_embed_dim),
+            nn.ReLU(),
+            nn.Dropout(0.1)
+        )
+        self.final_layer_pol = nn.Linear(atte_embed_dim, score_dim_pol)
+
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        # Input shape: (N, L, D) where D is feature dimension
+        batch_size = x.size(0)
+
+        # Create padding mask (True where pt value is NaN)
+        key_padding_mask = torch.isnan(x[..., 0])  # (N, L)
+
+        # Fill NaN values with zeros for numerical operations
+        x = torch.where(key_padding_mask.unsqueeze(-1), torch.zeros_like(x), x)
+
+        # Extract coordinate features (pt, eta, phi) for pairwise interaction
+        coords = x[..., :3].clone()
+        u = prepare_interaction(coords, pt_log_scale=self.pt_log_scale, interaction_type=self.interaction_type)  # (N, 3, L, L)
+        attn_mask = self.inter_embedding(u)  # (N, num_heads, L, L)
+
+        # Joint Particle Feature Embedding
+        x = self.par_embedding(x)  # (N, L, E)
+
+        # Particle Self-Attention blocks
+        for block in self.par_atte_blocks:
+            x = block(x, x_clt=None, attn_mask=attn_mask, key_padding_mask=key_padding_mask)
+
+        # Class Attention blocks
+        class_token = self.class_token.expand(batch_size, -1, -1)  # (N, 1, E)
+        for block in self.class_atte_blocks:
+            class_token = block(x, x_clt=class_token, key_padding_mask=key_padding_mask)
+
+        # Shared representation after LayerNorm
+        token_rep = self.layer_norm(class_token).squeeze(1)  # (N, E)
+
+        # Branch 1: EW vs BG
+        out_ew = self.final_layer_ew(self.fc_ew(token_rep))
+
+        # Branch 2: Polarization
+        out_pol = self.final_layer_pol(self.fc_pol(token_rep))
+
+        return out_ew, out_pol
+
+
+def create_model_from_config(config: Any, num_channels: int) -> nn.Module:
+    """Factory function to build ParticleTransformer or MultiHeadParticleTransformer model directly from config object/dict."""
     model_type = getattr(config, "model_structure", "ParT_Light")
     pt_log_scale = getattr(config, "pt_log_scale", True)
     interaction_type = getattr(config, "interaction_type", "default")
@@ -514,6 +583,16 @@ def create_model_from_config(config: Any, num_channels: int) -> ParticleTransfor
             base_params["ClassAtteBlock"]["fc_dim"] = mp["fc_dim"]
         if "dropout" in mp:
             base_params["ParAtteBlock"]["dropout"] = mp["dropout"]
+
+    is_multi_head = getattr(config, "is_multi_head", False) or getattr(config, "task", "") == "MultiHead_EW_and_LL_vs_LT_TT"
+    if is_multi_head:
+        score_dim_ew = getattr(config, "score_dim_ew", 1)
+        score_dim_pol = getattr(config, "score_dim_pol", 1)
+        return MultiHeadParticleTransformer(
+            parameters=base_params,
+            score_dim_ew=score_dim_ew,
+            score_dim_pol=score_dim_pol,
+        )
 
     return ParticleTransformer(score_dim=1, parameters=base_params)
 

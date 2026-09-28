@@ -148,8 +148,16 @@ class ParTFoldDataset(Dataset):
         print(f"  Fold {i_fold} ({fold_type}): {n_filtered} events (from cached {n_events} events)")
 
         # Assign labels and weights based on the filtered event counts
-        label, process_weight = get_process_label_and_weight(process_name, task)
-        self.labels = np.full(n_filtered, label, dtype=np.int64)
+        raw_label, process_weight = get_process_label_and_weight(process_name, task)
+        self.is_multihead = isinstance(raw_label, (tuple, list))
+        if self.is_multihead:
+            self.label_ew, self.label_pol = raw_label
+            self.labels = np.zeros((n_filtered, 2), dtype=np.int64)
+            self.labels[:, 0] = self.label_ew
+            self.labels[:, 1] = self.label_pol
+        else:
+            self.labels = np.full(n_filtered, raw_label, dtype=np.int64)
+
         sample_weight = compute_sample_weight(
             process_weight=process_weight,
             n_events=n_filtered,
@@ -536,7 +544,8 @@ def create_fold_datasets(
                 all_labels = np.concatenate([ds.labels for ds in datasets])
                 all_weights = np.concatenate([ds.weights for ds in datasets])
                 
-                balanced_weights = balance_signal_background_weights(all_labels, all_weights)
+                eval_labels = all_labels[:, 0] if all_labels.ndim == 2 else all_labels
+                balanced_weights = balance_signal_background_weights(eval_labels, all_weights)
                 
                 start_idx = 0
                 for ds in datasets:

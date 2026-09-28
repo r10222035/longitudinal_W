@@ -107,7 +107,27 @@ TASK_DEFINITIONS = {
         ],
         "signal_label": 1,
         "background_label": 0,
-    }, 
+    },
+    "MultiHead_EW_and_LL_vs_LT_TT": {
+        "name": "MultiHead: EW vs BG & LL vs (LT+TT)",
+        "type": "multihead_binary",
+        "signal_processes": [
+            "WWjj_EW",
+            "WWjj_EW_LL_WW_cmf",
+            "WWjj_EW_LT_WW_cmf",
+            "WWjj_EW_TT_WW_cmf",
+        ],
+        "background_processes": [
+            "WWjj_QCD",
+            "WZjj_EW",
+            "WZjj_QCD",
+        ],
+        "polarization_processes": {
+            "WWjj_EW_LL_WW_cmf": 1,
+            "WWjj_EW_LT_WW_cmf": 0,
+            "WWjj_EW_TT_WW_cmf": 0,
+        },
+    },
 }
 
 
@@ -122,13 +142,16 @@ def get_process_label_and_weight(
         task: Task definition to use (default: "EW_vs_Background")
     
     Returns:
-        (label, weight) tuple where label is 0 or 1, weight is physics cross-section (fb)
+        (label, weight) tuple where label is 0 or 1 (or tuple for multihead), weight is physics cross-section (fb)
     
     Raises:
         ValueError: If process_name not found in PROCESS_WEIGHTS or task not found
     """
     orig_name = process_name
-    process_name = resolve_process_name(process_name)
+    if orig_name not in PROCESS_WEIGHTS:
+        process_name = resolve_process_name(process_name)
+    else:
+        process_name = orig_name
 
     if task not in TASK_DEFINITIONS:
         raise ValueError(f"Task '{task}' not found. Available: {list(TASK_DEFINITIONS.keys())}")
@@ -139,6 +162,21 @@ def get_process_label_and_weight(
     task_def = TASK_DEFINITIONS[task]
     weight = PROCESS_WEIGHTS[process_name]
     
+    if task_def.get("type") == "multihead_binary":
+        # EW label
+        if orig_name in task_def["signal_processes"] or process_name in task_def["signal_processes"]:
+            label_ew = 1
+        elif orig_name in task_def["background_processes"] or process_name in task_def["background_processes"]:
+            label_ew = 0
+        else:
+            raise ValueError(
+                f"Process '{process_name}' (original: '{orig_name}') not in signal or background for task '{task}'"
+            )
+        # Polarization label
+        pol_dict = task_def.get("polarization_processes", {})
+        label_pol = pol_dict.get(orig_name, pol_dict.get(process_name, -1))
+        return (label_ew, label_pol), weight
+
     if orig_name in task_def["signal_processes"] or process_name in task_def["signal_processes"]:
         label = task_def["signal_label"]
     elif orig_name in task_def["background_processes"] or process_name in task_def["background_processes"]:

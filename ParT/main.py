@@ -21,7 +21,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "DNN"))
 
 from ParT.data_loader import create_fold_loaders
 from ParT.model import create_model_from_config
-from ParT.train import Trainer, plot_auc_history, plot_loss_history, save_metrics_json, plot_score_distribution
+from ParT.train import (
+    Trainer,
+    MultiHeadTrainer,
+    plot_auc_history,
+    plot_loss_history,
+    plot_multihead_history,
+    save_metrics_json,
+    plot_score_distribution,
+)
 
 from DNN.config import TASK_DEFINITIONS
 
@@ -53,8 +61,8 @@ def load_part_config(config_path: str, overrides: Dict[str, Any] = None) -> ParT
 def get_dataset_sizes(dataset, config: ParTTrainingConfig) -> Dict[str, int]:
     """Count signal and background samples in the dataset using cached labels."""
     task_def = TASK_DEFINITIONS.get(config.task)
-    sig_label = task_def["signal_label"] if task_def else 1
-    bg_label = task_def["background_label"] if task_def else 0
+    sig_label = task_def["signal_label"] if task_def and "signal_label" in task_def else 1
+    bg_label = task_def["background_label"] if task_def and "background_label" in task_def else 0
     
     if hasattr(dataset, "datasets"):
         datasets = dataset.datasets
@@ -66,8 +74,12 @@ def get_dataset_sizes(dataset, config: ParTTrainingConfig) -> Dict[str, int]:
     for ds in datasets:
         if hasattr(ds, "labels"):
             labels = ds.labels
-            sig_count += int(np.sum(labels == sig_label))
-            bg_count += int(np.sum(labels == bg_label))
+            if labels.ndim == 2:
+                sig_count += int(np.sum(labels[:, 0] == 1))
+                bg_count += int(np.sum(labels[:, 0] == 0))
+            else:
+                sig_count += int(np.sum(labels == sig_label))
+                bg_count += int(np.sum(labels == bg_label))
             
     return {
         "signal": sig_count,
@@ -145,18 +157,34 @@ def train_single_fold(
     print(f"  - FFN Dimension: {model.model_params['ParAtteBlock'].get('fc_dim')}")
     print(f"  - Embed Dims: {model.model_params['ParEmbed'].get('embed_dim')}\n")
     
+    is_multi_head = getattr(config, "is_multi_head", False) or getattr(config, "task", "") == "MultiHead_EW_and_LL_vs_LT_TT"
+
     # Train model
-    trainer = Trainer(
-        model=model,
-        train_loader=train_loader,
-        val_loader=val_loader,
-        test_loader=test_loader,
-        device=device,
-        learning_rate=config.learning_rate,
-        max_epochs=config.max_epochs,
-        early_stopping_patience=config.early_stopping_patience,
-        checkpoint_dir=str(checkpoint_dir),
-    )
+    if is_multi_head:
+        trainer = MultiHeadTrainer(
+            model=model,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            test_loader=test_loader,
+            device=device,
+            learning_rate=config.learning_rate,
+            loss_weight_pol=getattr(config, "loss_weight_pol", 1.0),
+            max_epochs=config.max_epochs,
+            early_stopping_patience=config.early_stopping_patience,
+            checkpoint_dir=str(checkpoint_dir),
+        )
+    else:
+        trainer = Trainer(
+            model=model,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            test_loader=test_loader,
+            device=device,
+            learning_rate=config.learning_rate,
+            max_epochs=config.max_epochs,
+            early_stopping_patience=config.early_stopping_patience,
+            checkpoint_dir=str(checkpoint_dir),
+        )
     
     print("Starting training...\n")
     history = trainer.train()
@@ -165,36 +193,67 @@ def train_single_fold(
     history_path = fold_output_dir / "training_history.json"
     save_metrics_json(history, str(history_path))
     
-    # Plot training history
-    loss_plot_path = fold_output_dir / "loss_history.pdf"
-    auc_plot_path = fold_output_dir / "auc_history.pdf"
-    plot_loss_history(history, str(loss_plot_path))
-    plot_auc_history(history, str(auc_plot_path))
-    
-    # Plot test score distribution
-    print("Generating score distribution plot on test set...")
-    probs, labels, _ = trainer.get_predictions(test_loader)
-    score_plot_path = fold_output_dir / "score_distribution.pdf"
-    plot_score_distribution(
-        probs=probs,
-        labels=labels,
-        task_name=config.task,
-        output_path=str(score_plot_path),
-    )
-    
-    # Prepare fold results
-    fold_results = {
-        "fold": i_fold,
-        "best_val_roc_auc": trainer.best_val_auc,
-        "test_roc_auc": history["test_roc_auc"],
-        "output_dir": str(fold_output_dir),
-        "duration_seconds": time.time() - t_fold_start,
-        "data_size": {
-            "train": get_dataset_sizes(train_loader.dataset, config),
-            "val": get_dataset_sizes(val_loader.dataset, config),
-            "test": get_dataset_sizes(test_loader.dataset, config),
+    # Plot training history and score distribution
+    if is_multi_head:
+        plot_multihead_history(history, str(fold_output_dir))
+        print("Generating multi-head score distribution plots on test set...")
+        preds = trainer.get_predictions(test_loader)
+        plot_score_distribution(
+            probs=preds["probs_ew"],
+            labels=preds["labels_ew"],
+            task_name="EW_vs_Background",
+            output_path=str(fold_output_dir / "score_distribution_ew.pdf"),
+        )
+        pol_mask = preds["labels_pol"] >= 0
+        if pol_mask.any():
+            plot_score_distribution(
+                probs=preds["probs_pol"][pol_mask],
+                labels=preds["labels_pol"][pol_mask],
+                task_name="PolState_LL_vs_LT_TT",
+                output_path=str(fold_output_dir / "score_distribution_pol.pdf"),
+            )
+        fold_results = {
+            "fold": i_fold,
+            "best_val_roc_auc": trainer.best_val_auc,
+            "test_ew_auc": history["test_ew_auc"],
+            "test_pol_auc": history["test_pol_auc"],
+            "test_mean_auc": history["test_mean_auc"],
+            "test_roc_auc": history["test_mean_auc"],
+            "output_dir": str(fold_output_dir),
+            "duration_seconds": time.time() - t_fold_start,
+            "data_size": {
+                "train": get_dataset_sizes(train_loader.dataset, config),
+                "val": get_dataset_sizes(val_loader.dataset, config),
+                "test": get_dataset_sizes(test_loader.dataset, config),
+            }
         }
-    }
+    else:
+        loss_plot_path = fold_output_dir / "loss_history.pdf"
+        auc_plot_path = fold_output_dir / "auc_history.pdf"
+        plot_loss_history(history, str(loss_plot_path))
+        plot_auc_history(history, str(auc_plot_path))
+        
+        print("Generating score distribution plot on test set...")
+        probs, labels, _ = trainer.get_predictions(test_loader)
+        score_plot_path = fold_output_dir / "score_distribution.pdf"
+        plot_score_distribution(
+            probs=probs,
+            labels=labels,
+            task_name=config.task,
+            output_path=str(score_plot_path),
+        )
+        fold_results = {
+            "fold": i_fold,
+            "best_val_roc_auc": trainer.best_val_auc,
+            "test_roc_auc": history["test_roc_auc"],
+            "output_dir": str(fold_output_dir),
+            "duration_seconds": time.time() - t_fold_start,
+            "data_size": {
+                "train": get_dataset_sizes(train_loader.dataset, config),
+                "val": get_dataset_sizes(val_loader.dataset, config),
+                "test": get_dataset_sizes(test_loader.dataset, config),
+            }
+        }
     
     return fold_results
 
@@ -247,7 +306,15 @@ def run_cross_validation(config: ParTTrainingConfig, device: torch.device) -> No
         )
     
     print(f"\nValidation ROC-AUC: {np.mean(val_aucs):.6f} ± {np.std(val_aucs):.6f}")
-    print(f"Test ROC-AUC:       {np.mean(test_aucs):.6f} ± {np.std(test_aucs):.6f}\n")
+    is_multi_head = getattr(config, "is_multi_head", False) or getattr(config, "task", "") == "MultiHead_EW_and_LL_vs_LT_TT"
+    if is_multi_head:
+        test_ew_aucs = [r["test_ew_auc"] for r in all_results if "test_ew_auc" in r]
+        test_pol_aucs = [r["test_pol_auc"] for r in all_results if "test_pol_auc" in r]
+        print(f"Test EW ROC-AUC:   {np.mean(test_ew_aucs):.6f} ± {np.std(test_ew_aucs):.6f}")
+        print(f"Test Pol ROC-AUC:  {np.mean(test_pol_aucs):.6f} ± {np.std(test_pol_aucs):.6f}")
+        print(f"Test Mean ROC-AUC: {np.mean(test_aucs):.6f} ± {np.std(test_aucs):.6f}\n")
+    else:
+        print(f"Test ROC-AUC:       {np.mean(test_aucs):.6f} ± {np.std(test_aucs):.6f}\n")
     
     # Compute timing information
     end_time = datetime.datetime.now()
