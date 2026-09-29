@@ -2090,6 +2090,181 @@
 
 	% subsection event_scaling_and_sample_size_dependence (end)
 
+    \subsection{Multi-Head Joint Classification}% (fold)
+    \label{sub:multi_head_joint_classification}
+        
+		\subsubsection{Multi-Head Architecture and Masked Loss Formulation}% (fold)
+		\label{subs:multi_head_architecture_and_masked_loss_formulation}
+
+			Figure~\ref{fig:multihead_part_architecture} outlines the schematic design of the Multi-Head ParT. The model consists of a shared backbone and two parallel classification heads:
+
+			\begin{figure}[htbp]
+				\centering
+				\begin{tikzpicture}[
+					node distance=1.2cm and 1.5cm,
+					box/.style={rectangle, draw=black!70, fill=blue!8, rounded corners=3pt, align=center, minimum width=2.6cm, minimum height=0.7cm, font=\small},
+					proc/.style={rectangle, draw=black!70, fill=green!12, rounded corners=3pt, align=center, minimum width=3.2cm, minimum height=0.7cm, font=\small},
+					head/.style={rectangle, draw=purple!80, fill=purple!10, rounded corners=4pt, align=center, minimum width=3.2cm, minimum height=0.8cm, font=\small\bfseries},
+					loss/.style={rectangle, draw=red!80, fill=red!10, rounded corners=4pt, align=center, minimum width=3.4cm, minimum height=0.8cm, font=\small},
+					arrow/.style={-{Latex[scale=1.0]}, thick, draw=black!75}
+				]
+					% Nodes
+					\node[box] (input) {Input Constituents $\mathbf{x} \in \mathbb{R}^{N \times C}$};
+					\node[box, below=0.8cm of input] (embed) {Joint Feature \& Pairwise Embedding};
+					\node[box, below=0.8cm of embed] (par_atte) {Particle Attention Blocks ($\times 3$)};
+					\node[box, below=0.8cm of par_atte] (cls_atte) {Class Attention Block ($\times 1$)};
+					\node[proc, below=0.8cm of cls_atte] (token) {Shared Representation $\mathbf{h}_{\mathrm{event}} \in \mathbb{R}^{E}$};
+
+					% Branching Heads
+					\node[head, below left=1.2cm and 0.4cm of token] (head_ew) {Head 1: EW vs. Bkg\\$\hat{z}_{\mathrm{ew}} \in \mathbb{R}$};
+					\node[head, below right=1.2cm and 0.4cm of token] (head_pol) {Head 2: Pol (LL vs. TX)\\$\hat{z}_{\mathrm{pol}} \in \mathbb{R}$};
+
+					% Losses
+					\node[loss, below=1.0cm of head_ew] (loss_ew) {BCE Loss $\mathcal{L}_{\mathrm{EW}}$\\(All samples participate)};
+					\node[loss, below=1.0cm of head_pol] (loss_pol) {Masked BCE Loss $\mathcal{L}_{\mathrm{pol}}$\\(Only Polarized $M_i = 1$)};
+					\node[proc, below=0.9cm of $(loss_ew)!0.5!(loss_pol)$, fill=orange!20, draw=orange!80, minimum width=7.2cm] (total_loss) {$\mathcal{L}_{\mathrm{total}} = \mathcal{L}_{\mathrm{EW}} + \lambda_{\mathrm{pol}} \cdot \mathcal{L}_{\mathrm{pol}}$};
+
+					% Arrows
+					\draw[arrow] (input) -- (embed);
+					\draw[arrow] (embed) -- (par_atte);
+					\draw[arrow] (par_atte) -- (cls_atte);
+					\draw[arrow] (cls_atte) -- (token);
+					\draw[arrow] (token) -| (head_ew);
+					\draw[arrow] (token) -| (head_pol);
+					\draw[arrow] (head_ew) -- (loss_ew);
+					\draw[arrow] (head_pol) -- node[right, font=\tiny, align=left] {Mask $M_i$} (loss_pol);
+					\draw[arrow] (loss_ew) |- (total_loss);
+					\draw[arrow] (loss_pol) |- (total_loss);
+				\end{tikzpicture}
+				\caption{Architecture of the Multi-Head Particle Transformer with shared attention backbone and dual heads governed by masked multi-task loss.}
+				\label{fig:multihead_part_architecture}
+			\end{figure}
+
+			\noindent\textbf{1. Shared Backbone:} After the sequence of attention layers, the event-level class token is normalized via layer normalization:
+			\begin{equation*}
+				\mathbf{h}_{\mathrm{event}} = \mathrm{LayerNorm}(\mathbf{x}_{\mathrm{class}}) \in \mathbb{R}^{E}
+			\end{equation*}
+			where $E = 64$ is the latent embedding dimension. This vector encapsulates the global kinematic geometry and particle multiplicity correlations.
+
+			\noindent\textbf{2. Classification Heads:} The event representation $\mathbf{h}_{\mathrm{event}}$ is branched into two independent multilayer perceptrons:
+			\begin{align*}
+				\hat{z}_{\mathrm{ew}} &= \mathbf{W}_2^{(\mathrm{ew})} \cdot \mathrm{Dropout}(\mathrm{GELU}(\mathbf{W}_1^{(\mathrm{ew})} \mathbf{h}_{\mathrm{event}} + \mathbf{b}_1^{(\mathrm{ew})})) + b_2^{(\mathrm{ew})} \in \mathbb{R} \\
+				\hat{z}_{\mathrm{pol}} &= \mathbf{W}_2^{(\mathrm{pol})} \cdot \mathrm{Dropout}(\mathrm{GELU}(\mathbf{W}_1^{(\mathrm{pol})} \mathbf{h}_{\mathrm{event}} + \mathbf{b}_1^{(\mathrm{pol})})) + b_2^{(\mathrm{pol})} \in \mathbb{R}
+			\end{align*}
+
+			\noindent\textbf{3. Masked Multi-Task Loss Formulation:} To utilize unpolarized signal samples and pure background events without corrupting the polarization head gradient, we introduce a sample-wise polarization mask:
+			\begin{equation*}
+				M_i = \begin{cases}
+					1, & \text{if sample } i \in \{\texttt{WWjj\_EW\_LL}, \texttt{WWjj\_EW\_LT}, \texttt{WWjj\_EW\_TT}\} \\
+					0, & \text{if sample } i \in \{\texttt{WWjj\_EW (unpolarized)}, \texttt{Backgrounds}\}
+				\end{cases}
+			\end{equation*}
+			The total batch objective is formulated as:
+			\begin{equation*}
+				\mathcal{L}_{\mathrm{total}} = \mathcal{L}_{\mathrm{EW}} + \lambda_{\mathrm{pol}} \cdot \mathcal{L}_{\mathrm{pol}}
+			\end{equation*}
+			where $\lambda_{\mathrm{pol}} = 1.0$ controls the multi-task balance. Because the two heads address distinct physical classification spaces with differing event participation and class proportions, their weight normalization must be treated with care:
+
+			\begin{itemize}
+				\item \textbf{Electroweak Head Loss ($\mathcal{L}_{\mathrm{EW}}$):} Evaluated across all $N$ events in the batch using the electroweak event weight $w_i^{(\mathrm{ew})}$:
+				\begin{equation*}
+					\mathcal{L}_{\mathrm{EW}} = \frac{\sum_{i=1}^N w_i^{(\mathrm{ew})} \cdot \ell_{\mathrm{BCE}}(\hat{z}_{\mathrm{ew}, i}, y_{\mathrm{ew}, i})}{\sum_{i=1}^N w_i^{(\mathrm{ew})}}.
+				\end{equation*}
+				Here, $w_i^{(\mathrm{ew})}$ is globally balanced prior to training such that cumulative electroweak signal events and backgrounds have equal weight.
+
+				\item \textbf{Polarization Head Loss ($\mathcal{L}_{\mathrm{pol}}$) and Head Normalization:} Evaluated exclusively over the valid polarized subset ($M_i = 1$):
+				\begin{equation*}
+					\mathcal{L}_{\mathrm{pol}} = \begin{cases}
+						\dfrac{\sum_{i=1}^N M_i \cdot w_i^{(\mathrm{pol})} \cdot \ell_{\mathrm{BCE}}(\hat{z}_{\mathrm{pol}, i}, y_{\mathrm{pol}, i})}{\sum_{i=1}^N M_i \cdot w_i^{(\mathrm{pol})}}, & \text{if } \sum_{i=1}^N M_i > 0 \\
+						0, & \text{if } \sum_{i=1}^N M_i = 0
+					\end{cases}.
+				\end{equation*}
+			\end{itemize}
+
+			A crucial physical subtlety arises regarding $w_i^{(\mathrm{pol})}$. In the initial implementation, $w_i^{(\mathrm{pol})}$ directly inherits the global cross-section weight $w_i^{(\mathrm{ew})}$. While this preserves true physical cross-section ratios, the longitudinal polarization mode possesses a substantially smaller cross section than transverse modes ($\sigma_{\mathrm{LL}} \ll \sigma_{\mathrm{LT}} + \sigma_{\mathrm{TT}}$), causing transverse events to dominate the polarization loss gradient. To restore balance within the polarization head, an independent intra-head rebalancing can be formulated in the next implementation.
+
+			\noindent\textbf{4. Model Evaluation and Checkpoint Criterion:} Model selection during validation is monitored by the arithmetic mean of both validation AUCs:
+			\begin{equation*}
+				\mathrm{Score}_{\mathrm{val}} = \frac{\mathrm{AUC}_{\mathrm{val}}^{(\mathrm{EW})} + \mathrm{AUC}_{\mathrm{val}}^{(\mathrm{pol})}}{2}.
+			\end{equation*}
+			The best checkpoint is preserved whenever $\mathrm{Score}_{\mathrm{val}}$ achieves a new global maximum, preventing early stopping from favoring one task over the other.
+
+		% subsubsection multi_head_architecture_and_masked_loss_formulation (end)
+
+        \subsubsection{Input Configurations}% (fold)
+        \label{subs:input_configurations}
+            
+			We investigate the high-level and low-level features within the multi-head setup:
+			\begin{itemize}
+				\item \textbf{High-Level:} Constructed from the 5 reconstructed physics objects ($l_1, l_2, j_1, j_2, \mathrm{MET}$) with kinematic features $(p_{\mathrm{T}}, \eta, \Delta\phi)$ and a 3-dimensional object one-hot identifier. Models are trained with a large batch size of 2048.
+				\item \textbf{Low-Level:} Sourced directly from Delphes energy-flow reconstruction. Objects categorized into 3 particle types:
+				\begin{equation*}
+					\texttt{part\_type} \in \{0: \text{EFlowTrack}, 1: \text{EFlowPhoton}, 2: \text{EFlowNeutralHadron}\}
+				\end{equation*}
+				Continuous coordinates $(p_{\mathrm{T}}, \eta, \phi)$ are paired with a 3-channel one-hot type encoding. Due to the quadratic complexity over 256 particles, the batch size is set to 128.
+			\end{itemize}
+            Pairwise particle interactions are computed via coordinate differences $(\Delta\eta, \Delta\phi, \Delta R)$. 
+
+        % subsubsection input_configurations (end)	
+
+		\subsubsection{Scaling Results and Discussion}% (fold)
+		\label{subs:multihead_scaling_results_and_discussion}
+
+			To analyze performance scaling with sample size, the total dataset is evaluated across five fraction steps: $5\%, 10\%, 25\%, 50\%, \text{and } 100\%$ on Fold 0.
+
+			Table~\ref{tab:multihead_part_scaling_results} and Figure~\ref{fig:multihead_scaling_curves} present the test AUC performance comparison across sample fractions for both High-Level and Low-Level Multi-Head ParT models.
+
+			\begin{table}[htbp]
+				\centering
+				\caption{Multi-Head ParT test AUC performance across dataset fractions for High-Level and Low-Level representations (Fold 0).}
+				\label{tab:multihead_part_scaling_results}
+				\begin{tabular}{l|c|ccccc}
+					\hline
+					\hline
+					Representation & Task & 5\% & 10\% & 25\% & 50\% & 100\% \\
+					\hline
+					\multirow{2}{*}{\textbf{High-Level}} 
+					& EW vs. Bkg & 0.744 & 0.760 & 0.770 & 0.784 & 0.790 \\
+					& LL vs. TX & 0.798 & 0.802 & 0.812 & 0.819 & 0.821 \\
+					\hline
+					\multirow{2}{*}{\textbf{Low-Level}} 
+					& EW vs. Bkg & 0.915 & 0.929 & 0.941 & 0.937 & 0.950 \\
+					& LL vs. TX & 0.760 & 0.797 & 0.806 & 0.810 & 0.823 \\
+					\hline
+					\hline
+				\end{tabular}%
+			\end{table}
+
+			\begin{figure}[htbp]
+				\centering
+				\subfloat[EW vs. Bkg.\label{fig:multihead_scaling_ew}]{%
+					\includegraphics[width=0.47\textwidth]{scaling_ew_auc.pdf}%
+				}\hfill
+				\subfloat[LL vs. TX\label{fig:multihead_scaling_pol}]{%
+					\includegraphics[width=0.47\textwidth]{scaling_pol_auc.pdf}%
+				}
+				\caption{Test AUC scaling trajectories as a function of training dataset size for High-Level and Low-Level representations in the Multi-Head ParT architecture.}
+				\label{fig:multihead_scaling_curves}
+			\end{figure}
+
+			\noindent\textbf{Scaling Trajectory Observations:}
+			\begin{itemize}
+				\item \textbf{Electroweak Head:} The Low-Level representation demonstrates decisive superiority over High-Level features, reaching an AUC of $0.950$ compared to $0.790$ at $100\%$ dataset fraction. This gap is primarily driven by constituent-level multiplicity, which effectively discriminate QCD background jets from electroweak topology.
+				\item \textbf{Polarization Head:} Lacking bulk multiplicity differences, polarization discrimination relies on subtle angular correlations. The Low-Level polarization AUC exhibits a steeper learning curve, rising from $0.760$ at $5\%$ to $0.823$ at $100\%$ and ultimately matching the High-Level baseline ($0.821$).
+			\end{itemize}
+
+			\noindent\textbf{Comparison with Single-Task Training:}
+			Comparing the Multi-Head model with the dedicated single-task networks trained in Section~\ref{subs:high_level_event_scaling} (Table~\ref{tab:part_highlevel_scaling_results}) and Section~\ref{subs:low_level_event_scaling} (Table~\ref{tab:part_lowlevel_scaling_results}) at $100\%$ sample fraction reveals that joint multi-head learning yields nearly identical performance without significant gains:
+			\begin{itemize}
+				\item \textbf{High-Level:} Multi-Head achieves EW AUC $0.790$ and Pol AUC $0.821$, compared to $0.786$ and $0.826$ in single-task training.
+				\item \textbf{Low-Level:} Multi-Head achieves EW AUC $0.950$ and Pol AUC $0.823$, compared to $0.948$ and $0.829$ in single-task training.
+			\end{itemize}
+			This observation indicates that multi-task learning neither suffers from destructive gradient interference nor exhibits substantial positive synergy. Nonetheless, the unified Multi-Head framework achieves end-to-end inference in a single network.
+
+		% subsubsection multihead_scaling_results_and_discussion (end)
+
+    % subsection multi_head_joint_classification (end)
+
 % section particle_transformer (end)
 
 \bibliographystyle{ieeetr}
