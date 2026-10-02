@@ -2267,6 +2267,123 @@
 
 % section particle_transformer (end)
 
+\section{Convolutional Neural Network}% (fold)
+\label{sec:convolutional_neural_network}
+    
+    We explore the feasibility of Convolutional Neural Networks (CNN) with the event image representation, projecting detector signals onto a 2D plane.
+
+    \subsection{Event Image Representation}% (fold)
+    \label{sub:event_image_representation}
+
+        Delphes Energy Flow (EFlow) candidates are discretized onto a $40 \times 40$ grid spanning $\eta \in [-5.0, 5.0]$ and $\phi \in [-\pi, \pi]$. The image encodes three physical channels:
+        \begin{itemize}
+            \item Track $p_{\text{T}}$: Sum of transverse momenta of charged tracks ($|\eta| < 2.5$).
+            \item Photon $E_{\text{T}}$: Sum of transverse energies of neutral electromagnetic calorimeter clusters.
+            \item Neutral Hadron $E_{\text{T}}$: Sum of transverse energies of neutral hadronic calorimeter clusters.
+        \end{itemize}
+
+        Figure~\ref{fig:cnn_single_event_gallery} shows a representative single event across each channel.
+
+        \begin{figure}[htbp]
+            \centering
+            \subfloat[Track $p_{\text{T}}$\label{fig:single_trk}]{%
+                \includegraphics[width=0.32\textwidth]{event_images/pdf/single_event_track.pdf}%
+            }\hfill
+            \subfloat[Photon $E_{\text{T}}$\label{fig:single_pho}]{%
+                \includegraphics[width=0.32\textwidth]{event_images/pdf/single_event_photon.pdf}%
+            }\hfill
+            \subfloat[Hadron $E_{\text{T}}$\label{fig:single_had}]{%
+                \includegraphics[width=0.32\textwidth]{event_images/pdf/single_event_hadron.pdf}%
+            }
+            \caption{Single-event calorimeter and tracker image representations for a EW $W^+W^+jj$ event on a $40 \times 40$ grid ($\eta \in [-5, 5], \phi \in [-\pi, \pi]$).}
+            \label{fig:cnn_single_event_gallery}
+        \end{figure}
+
+    % subsection event_image_representation (end)
+
+    \subsection{EventCNN Model Architecture and Training Strategy}% (fold)
+    \label{sub:eventcnn_model_architecture_and_training_strategy}
+
+        We consider the EventCNN backbone. It processes $(B, 3, 40, 40)$ input tensors. Feature channels expand from $64$ to $256$ across three stages with stride-2 downsampling, followed by Global Average Pooling (GAP) and an MLP head.
+
+        Training utilizes binary cross-entropy with logits loss and exact $1:1$ signal-to-background event weight normalization. Optimization is conducted using AdamW (learning rate $1 \times 10^{-3}$, weight decay $1 \times 10^{-4}$) with a cosine annealing learning rate scheduler. Early stopping is based on the validation weighted AUC with a patience of $15$ epochs.
+
+    % subsection eventcnn_model_architecture_and_training_strategy (end)
+
+    \subsection{Benchmark Results and Physical Interpretations}% (fold)
+    \label{sub:benchmark_results_and_physical_interpretations}
+
+        Table~\ref{tab:cnn_cv_benchmark} compares EventCNN performance against the baseline Dense-NN across 5-fold cross-validation.
+
+        \begin{table}[htbp]
+            \centering
+            \small
+            \caption{Test AUC performance across 5-fold cross-validation comparing the Dense-NN with EventCNN.}
+            \label{tab:cnn_cv_benchmark}
+            \begin{tabular}{lccc}
+                \toprule
+                \textbf{Task} & \textbf{Dense-NN} & \textbf{EventCNN} & \textbf{$\Delta$ AUC} \\
+                \midrule
+                EW vs. Bkg. & $0.806 \pm 0.002$ & $\mathbf{0.918 \pm 0.000}$ & $+0.112$ \\
+                LL vs. TX & $\mathbf{0.839 \pm 0.001}$ & $0.809 \pm 0.001$ & $-0.030$ \\
+                LX vs. TT & $\mathbf{0.782 \pm 0.002}$ & $0.755 \pm 0.001$ & $-0.027$ \\
+                \bottomrule
+            \end{tabular}
+        \end{table}
+
+        For the EW vs. Bkg task, EventCNN achieves an AUC of $0.918$, outperforming the Dense-NN. Figure~\ref{fig:ew_vs_qcd_heatmaps} compares the average energy depositions between signal and background. In the neutral hadron channel (Figure~\ref{fig:ew_had}), the signal displays a clear central gap ($|\eta| < 1.5$) with near-zero deposition, accompanied by prominent forward tagging jet peaks at $|\eta| \approx 2.7$. In contrast, the background exhibits continuous diffuse hadronic deposition across the central region (Figure~\ref{fig:qcd_had}).
+
+        \begin{figure}[htbp]
+            \centering
+            \subfloat[Sig Track $p_{\text{T}}$\label{fig:ew_trk}]{%
+                \includegraphics[width=0.32\textwidth]{event_images/pdf/ew_140k_track.pdf}%
+            }\hfill
+            \subfloat[Sig Photon $E_{\text{T}}$\label{fig:ew_pho}]{%
+                \includegraphics[width=0.32\textwidth]{event_images/pdf/ew_140k_photon.pdf}%
+            }\hfill
+            \subfloat[Sig Hadron $E_{\text{T}}$\label{fig:ew_had}]{%
+                \includegraphics[width=0.32\textwidth]{event_images/pdf/ew_140k_hadron.pdf}%
+            }\\
+            \subfloat[Bkg Track $p_{\text{T}}$\label{fig:qcd_trk}]{%
+                \includegraphics[width=0.32\textwidth]{event_images/pdf/qcd_140k_track.pdf}%
+            }\hfill
+            \subfloat[Bkg Photon $E_{\text{T}}$\label{fig:qcd_pho}]{%
+                \includegraphics[width=0.32\textwidth]{event_images/pdf/qcd_140k_photon.pdf}%
+            }\hfill
+            \subfloat[Bkg Hadron $E_{\text{T}}$\label{fig:qcd_had}]{%
+                \includegraphics[width=0.32\textwidth]{event_images/pdf/qcd_140k_hadron.pdf}%
+            }
+            \caption{Average energy depositions ($140,000$ events) for electroweak signal (top) vs. background (bottom). The background corresponds to the dominant QCD $W^+W^+jj$ channel.}
+            \label{fig:ew_vs_qcd_heatmaps}
+        \end{figure}
+
+        For polarization discrimination, EventCNN is worse than Dense-NN by $\sim 3\%$. The one-dimensional $\eta$-projection profiles are shown in Figure~\ref{fig:pol_1d_profiles}:
+        \begin{itemize}
+            \item Across all visible channels, the pure longitudinal state (LL) consistently deposits the lowest average energy, exhibiting a hierarchy of $\text{TT} \ge \text{LT} > \text{LL}$.
+            \item In the forward neutral hadron channel ($|\eta| \approx 2.7$), the tagging jet peak depositions overlap identically across all three polarization states.
+        \end{itemize}
+
+        \begin{figure}[htbp]
+            \centering
+            \subfloat[Track $p_{\text{T}}$\label{fig:prof_trk}]{%
+                \includegraphics[width=0.32\textwidth]{event_images/pdf/profile_200k_track.pdf}%
+            }\hfill
+            \subfloat[Photon $E_{\text{T}}$\label{fig:prof_pho}]{%
+                \includegraphics[width=0.32\textwidth]{event_images/pdf/profile_200k_photon.pdf}%
+            }\hfill
+            \subfloat[Neutral Hadron $E_{\text{T}}$\label{fig:prof_had}]{%
+                \includegraphics[width=0.32\textwidth]{event_images/pdf/profile_200k_hadron.pdf}%
+            }
+            \caption{One-dimensional $\eta$-projection profiles for LL, LT, and TT polarization states ($200,000$ events).}
+            \label{fig:pol_1d_profiles}
+        \end{figure}
+
+        The performance gap in polarization arises because all polarization states share identical spatial topology. The discrimination relies on subtle intensity shifts that are easily smeared by detector fluctuations. Moreover, distinguishing helicity states fundamentally benefits from exact continuous kinematic invariants involving missing energy ($\Delta\phi_{\ell\ell}, m_{\text{T}}, \cos\theta^*$). The discrete $40 \times 40$ image quantization prevents convolution filters from recovering these continuum algebraic relations with the precision available to the Dense-NN.
+
+    % subsection benchmark_results_and_physical_interpretations (end)
+
+% section convolutional_neural_network (end)
+
 \bibliographystyle{ieeetr}
 \bibliography{reference}
 
