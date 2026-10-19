@@ -2384,6 +2384,154 @@
 
 % section convolutional_neural_network (end)
 
+\section{Normalizing Flows}% (fold)
+\label{sec:normalizing_flows}
+
+    \subsection{Probability Modeling with Normalizing Flows}% (fold)
+    \label{sub:probability_modeling_with_normalizing_flows}
+
+        Normalizing flows provide a framework for constructing the probability distributions over continuous random variables. Let $\vec{u} \in \mathbb{R}^D$ be a continuous random vector governed by a \textit{base distribution} $p_{\vec{u}}(\vec{u})$, conventionally chosen to be an standard multivariate Gaussian:
+        \begin{equation*}
+            \vec{u} \sim p_{\vec{u}}(\vec{u}) = \mathcal{N}(\vec{u}; \vec{0}, \mathbf{I}).
+        \end{equation*}
+        A normalizing flow constructs a target random vector $\vec{x} \in \mathbb{R}^D$ through an invertible mapping $T: \mathbb{R}^D \to \mathbb{R}^D$:
+        \begin{equation}
+            \vec{x} = T(\vec{u}).
+        \end{equation}
+        The transformation $T$ is required to be bijective, and both $T$ and its inverse $T^{-1}$ are differentiable. The transformation $T$ induces a well-defined probability density function $p_{\vec{x}}(\vec{x})$.
+
+        A flow-based model is equipped with two capabilities:
+        \begin{enumerate}
+            \item \textbf{Sampling:} If we can sample $\vec{u}$ from the base distribution $p_{\vec{u}}(\vec{u})$ and compute the transformation $T$, we can directly sample $\vec{x}$ from the target distribution via $\vec{x} = T(\vec{u})$.
+
+            \item \textbf{Density Estimation:} Given an observed data vector $\vec{x}$, its exact probability density under the model is evaluated by mapping $\vec{x}$ back to the base space via the inverse transformation $\vec{u} = T^{-1}(\vec{x})$. By the change of variables theorem, the density is given by:
+            \begin{equation}
+                p_{\vec{x}}(\vec{x}) = p_{\vec{u}}\!\left(T^{-1}(\vec{x})\right) \left| \det J_{T^{-1}}(\vec{x}) \right| = p_{\vec{u}}(\vec{u}) \left| \det J_T(\vec{u}) \right|^{-1},
+                \label{eq:nf_change_of_variables}
+            \end{equation}
+            where $J_T(\vec{u}) \in \mathbb{R}^{D \times D}$ denotes the Jacobian matrix of $T$ evaluated at $\vec{u}$:
+            \begin{equation}
+                \left( J_T(\vec{u}) \right)_{ij} = \frac{\partial T_i}{\partial u_j}.
+            \end{equation}
+            Computing the exact log-likelihood for training via maximum likelihood estimation requires the evaluation of the inverse transformation $T^{-1}$ and the corresponding Jacobian determinant $ \left| \det J_{T^{-1}}(\vec{x}) \right|$.
+        \end{enumerate}
+
+    % subsection probability_modeling_with_normalizing_flows (end)
+
+    \subsection{Autoregressive Flows}% (fold)
+    \label{sub:autoregressive_flows}
+
+        Evaluating the density in Equation~\eqref{eq:nf_change_of_variables} requires computing the determinant of the $D \times D$ Jacobian matrix. For an arbitrary transformation, calculating $\det J_T$ incurs a computational complexity of $\mathcal{O}(D^3)$, rendering high-dimensional density estimation intractable. If $J_T$ is constrained to be triangular, its determinant simplifies to the product of its diagonal elements, reducing the computational cost to linear time $\mathcal{O}(D)$.
+
+        Autoregressive flows achieve a triangular Jacobian by structuring the transformation according to the chain rule of probability. Specifically, the $i$-th element of the output vector $\vec{x}$ depends only on the $i$-th input scalar $u_i$ and the preceding input history $\vec{u}_{<i} = (u_1, \dots, u_{i-1})$:
+        \begin{equation}
+            x_i = \tau(u_i; \, \vec{h}_i), \quad \text{with} \quad \vec{h}_i = c_i(\vec{u}_{<i}),
+            \label{eq:autoregressive_flow_step}
+        \end{equation}
+        where:
+        \begin{itemize}
+            \item $\tau(\cdot; \vec{h}_i): \mathbb{R} \to \mathbb{R}$ is the \textbf{transformer}, a strictly monotonic scalar function parameterized by $\vec{h}_i$, which guarantees invertibility with respect to $u_i$.
+            \item $c_i: \mathbb{R}^{i-1} \to \mathbb{R}^P$ is the $i$-th \textbf{conditioner}, which computes the parameter vector $\vec{h}_i$ from $\vec{u}_{<i}$. Crucially, $c_i$ is unconstrained and can be parameterized by arbitrary neural networks without requiring invertibility.
+        \end{itemize}
+        Because $x_i$ does not depend on any $u_j$ with $j > i$, the partial derivatives satisfy $\frac{\partial x_i}{\partial u_j} = 0$ for all $j > i$. Consequently, the Jacobian matrix $J_T(\vec{u})$ is strictly lower triangular, and its log absolute determinant is evaluated in $\mathcal{O}(D)$ time:
+        \begin{equation}
+            \log \left| \det J_T(\vec{u}) \right| = \sum_{i=1}^D \log \left| \frac{\partial \tau(u_i; \vec{h}_i)}{\partial u_i} \right|.
+        \end{equation}
+
+    % subsection autoregressive_flows (end)
+
+    \subsection{Transformers, Conditioners, and Coupling Layers}% (fold)
+    \label{sub:transformers_conditioners_and_coupling_layers}
+
+        The practical performance and computational trade-offs of flow models are determined by the choices of transformer and conditioner.
+
+        \subsubsection{Spline-Based Transformers}
+        Early flow architectures employed affine transformers:
+        \begin{equation}
+            \tau(u_i; \, \vec{h}_i) = \alpha_i u_i + \beta_i, \quad \vec{h}_i = \{\alpha_i, \beta_i\},
+        \end{equation}
+        with $\alpha_i > 0$. While computationally trivial to invert, affine transformations possess limited expressivity per layer.
+
+        To enhance expressivity while preserving exact, closed-form invertibility, \textbf{Rational-Quadratic Splines (RQS)} define the transformer as a monotonic piecewise function. Within a compact domain $[-B, B]$ partitioned into $K$ bins, the mapping inside each bin $[u^{(k-1)}, u^{(k)}]$ is parameterized as the quotient of two quadratic polynomials:
+        \begin{equation}
+            \tau(u_i; \, \vec{h}_i) = \frac{\gamma^{(2)}_k u_i^2 + \gamma^{(1)}_k u_i + \gamma^{(0)}_k}{\delta^{(2)}_k u_i^2 + \delta^{(1)}_k u_i + \delta^{(0)}_k}, \quad \text{for } u_i \in [u^{(k-1)}, u^{(k)}].
+        \end{equation}
+        This formulation guarantees these crucial properties:
+        \begin{enumerate}
+            \item \textbf{Analytic Inversion:} Given $x_i$, the pre-image $u_i = \tau^{-1}(x_i; \vec{h}_i)$ is obtained analytically by solving a scalar quadratic equation.
+            \item \textbf{Analytic Derivatives:} The derivative $\frac{\partial \tau(u_i; \vec{h}_i)}{\partial u_i}$ is given in closed form, enabling immediate evaluation of the diagonal Jacobian terms without numerical differentiation.
+        \end{enumerate}
+
+        \subsubsection{Masked Conditioners}
+        A naive implementation employing $D$ independent networks for $\{c_i\}_{i=1}^D$ scales poorly with dimension. \textbf{Masked Autoencoders for Distribution Estimation (MADE)} resolve this by parameterizing all conditioners jointly within a single feedforward network. By multiplying each weight matrix elementwise by a predefined binary mask matrix $M$:
+        \begin{equation}
+            W_{\text{eff}} = W \odot M,
+        \end{equation}
+        all computational paths from $u_j$ to $\vec{h}_i$ for $j \ge i$ are zeroed out. This allows the complete parameter sequence $(\vec{h}_1, \dots, \vec{h}_D)$ to be computed in a single forward pass, fully exploiting GPU parallelism.
+
+        To illustrate the core mechanism concretely, consider a 3-dimensional input $\vec{u} = (u_1, u_2, u_3)^T$ processed by a two-layer network with hidden activations $\vec{a} = \sigma(W_{\text{eff}} \vec{u} + \vec{b})$ and outputs $\vec{h} = V_{\text{eff}} \vec{a} + \vec{c}$. The binary masks $M^W$ (input-to-hidden) and $M^V$ (hidden-to-output) are designed to block any path from input $u_j$ to output $h_i$ whenever $j \ge i$. A representative configuration for a 3-unit hidden layer is:
+        \begin{equation}
+            M^W = \begin{bmatrix}
+                1 & 0 & 0 \\
+                1 & 0 & 0 \\
+                1 & 1 & 0
+            \end{bmatrix}, \quad
+            M^V = \begin{bmatrix}
+                0 & 0 & 0 \\
+                1 & 1 & 0 \\
+                1 & 1 & 1
+            \end{bmatrix}.
+        \end{equation}
+        The effective connectivity between inputs $\vec{u}$ and outputs $\vec{h}$ across the network is captured by the product of the masks:
+        \begin{equation}
+            M^V M^W = \begin{bmatrix}
+                0 & 0 & 0 \\
+                1 & 1 & 0 \\
+                1 & 1 & 1
+            \end{bmatrix}
+            \begin{bmatrix}
+                1 & 0 & 0 \\
+                1 & 0 & 0 \\
+                1 & 1 & 0
+            \end{bmatrix}
+            = \begin{bmatrix}
+                0 & 0 & 0 \\
+                2 & 0 & 0 \\
+                3 & 1 & 0
+            \end{bmatrix}.
+        \end{equation}
+        Because $M^V M^W$ is strictly lower-triangular with a vanishing diagonal, all connections with $j \ge i$ are eliminated: $h_1$ receives no input signals, $h_2$ depends solely on $u_1$, and $h_3$ depends only on $(u_1, u_2)$. In this way, the autoregressive structure is preserved across arbitrary feedforward layers within a single forward pass.
+
+        \subsubsection{Coupling Layers}
+        Although masked conditioners allow $\mathcal{O}(1)$ single-pass evaluation of the forward mapping $T$, inverting an autoregressive model requires sequential element-by-element inversion:
+        \begin{equation}
+            u_i = \tau^{-1}(x_i; \, c_i(\vec{u}_{<i})),
+        \end{equation}
+        which demands $D$ sequential neural network evaluations ($\mathcal{O}(D)$ runtime).
+
+        \textbf{Coupling layers} restore computational symmetry by partitioning the $D$-dimensional vector into two subsets $\vec{u} = [\vec{u}_{\le d}, \vec{u}_{>d}]$, where $d \approx D/2$:
+        \begin{align}
+            \vec{x}_{\le d} &= \vec{u}_{\le d}, \\
+            x_i &= \tau(u_i; \, \vec{h}_i), \quad \text{with} \quad \vec{h}_{>d} = F(\vec{u}_{\le d}), \quad \forall i > d.
+        \end{align}
+        Here, $F$ is an arbitrary, unconstrained neural network. The inverse transformation is given by:
+        \begin{align}
+            \vec{u}_{\le d} &= \vec{x}_{\le d}, \\
+            u_i &= \tau^{-1}(x_i; \, \vec{h}_i), \quad \text{with} \quad \vec{h}_{>d} = F(\vec{u}_{\le d}), \quad \forall i > d.
+        \end{align}
+        Because $\vec{u}_{\le d} = \vec{x}_{\le d}$ is preserved identically, the conditioner network $F$ is evaluated only once in both the forward and inverse directions. Both sampling and density evaluation are therefore achieved in $\mathcal{O}(1)$ single forward passes. The Jacobian matrix of a coupling layer is block lower-triangular:
+        \begin{equation}
+            J_T(\vec{u}) = \begin{bmatrix}
+                \mathbf{I}_{d \times d} & \mathbf{0} \\
+                \frac{\partial \vec{x}_{>d}}{\partial \vec{u}_{\le d}} & \operatorname{diag}\left( \frac{\partial \tau(u_i; \vec{h}_i)}{\partial u_i} \right)_{i=d+1}^D
+            \end{bmatrix},
+        \end{equation}
+        and its determinant remains the product of the diagonal derivatives of the active partition.
+
+    % subsection transformers_conditioners_and_coupling_layers (end)
+
+% section normalizing_flows (end)
+
 \bibliographystyle{ieeetr}
 \bibliography{reference}
 
