@@ -439,6 +439,37 @@ class ParT_Light(ParticleTransformer):
         super().__init__(score_dim=1, parameters=hyperparameters)
 
 
+class ParT_Standard(ParticleTransformer):
+    """Standard / Full Particle Transformer config based on Qu et al. (NeurIPS 2022)."""
+
+    def __init__(self, num_channels: int = 3, pt_log_scale: bool = True, interaction_type: str = "default", use_mass: bool = False):
+        kinematic_dim = 4 if use_mass else 3
+        hyperparameters = {
+            "pt_log_scale": pt_log_scale,
+            "interaction_type": interaction_type,
+            "use_mass": use_mass,
+            "kinematic_dim": kinematic_dim,
+            "num_channels": num_channels,
+            "ParEmbed": {
+                "input_dim": kinematic_dim + num_channels,
+                "embed_dim": 128
+            },
+            "ParAtteBlock": {
+                "num_heads": 8,
+                "fc_dim": 512,
+                "dropout": 0.1
+            },
+            "ClassAtteBlock": {
+                "num_heads": 8,
+                "fc_dim": 512,
+                "dropout": 0.0
+            },
+            "num_ParAtteBlock": 8,
+            "num_ClassAtteBlock": 2
+        }
+        super().__init__(score_dim=1, parameters=hyperparameters)
+
+
 class MultiHeadParticleTransformer(ParticleTransformer):
     """Multi-Head Particle Transformer for joint EW vs BG and Polarization classification.
     
@@ -520,7 +551,20 @@ def create_model_from_config(config: Any, num_channels: int) -> nn.Module:
     kinematic_dim = 4 if use_mass else 3
 
     # Base defaults according to model_structure
-    if model_type == "ParT_Baseline":
+    if model_type == "ParT_Standard":
+        base_params = {
+            "pt_log_scale": pt_log_scale,
+            "interaction_type": interaction_type,
+            "use_mass": use_mass,
+            "kinematic_dim": kinematic_dim,
+            "num_channels": num_channels,
+            "ParEmbed": {"input_dim": kinematic_dim + num_channels, "embed_dim": 128},
+            "ParAtteBlock": {"num_heads": 8, "fc_dim": 512, "dropout": 0.1},
+            "ClassAtteBlock": {"num_heads": 8, "fc_dim": 512, "dropout": 0.0},
+            "num_ParAtteBlock": 8,
+            "num_ClassAtteBlock": 2,
+        }
+    elif model_type == "ParT_Baseline":
         base_params = {
             "pt_log_scale": pt_log_scale,
             "interaction_type": interaction_type,

@@ -42,6 +42,9 @@ class Trainer:
         test_loader: DataLoader,
         device: torch.device = torch.device("cpu"),
         learning_rate: float = 0.001,
+        weight_decay: float = 0.01,
+        warmup_epochs: int = 5,
+        optimizer_type: str = "AdamW",
         max_epochs: int = 200,
         early_stopping_patience: int = 20,
         checkpoint_dir: str = "./checkpoints",
@@ -54,16 +57,22 @@ class Trainer:
         self.max_epochs = max_epochs
         self.early_stopping_patience = early_stopping_patience
         self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        self.warmup_epochs = warmup_epochs
         
-        # Optimizer
-        self.optimizer = Adam(self.model.parameters(), lr=learning_rate)
+        # Optimizer (Support AdamW or Adam)
+        if optimizer_type.lower() == "adam":
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
+        else:
+            self.optimizer = torch.optim.AdamW(
+                self.model.parameters(), lr=learning_rate, weight_decay=weight_decay
+            )
         
         # Warmup and LR Scheduler
-        self.warmup_epochs = 5
         self.warmup_start_lr = 1e-6
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             self.optimizer, 
-            T_max=max_epochs - self.warmup_epochs, 
+            T_max=max(max_epochs - self.warmup_epochs, 1), 
             eta_min=1e-6
         )
         
@@ -434,6 +443,9 @@ class MultiHeadTrainer:
         test_loader: DataLoader,
         device: torch.device = torch.device("cpu"),
         learning_rate: float = 0.001,
+        weight_decay: float = 0.01,
+        warmup_epochs: int = 5,
+        optimizer_type: str = "AdamW",
         loss_weight_pol: float = 1.0,
         max_epochs: int = 200,
         early_stopping_patience: int = 20,
@@ -447,17 +459,23 @@ class MultiHeadTrainer:
         self.max_epochs = max_epochs
         self.early_stopping_patience = early_stopping_patience
         self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        self.warmup_epochs = warmup_epochs
         self.loss_weight_pol = loss_weight_pol
 
-        # Optimizer
-        self.optimizer = Adam(self.model.parameters(), lr=learning_rate)
+        # Optimizer (Support AdamW or Adam)
+        if optimizer_type.lower() == "adam":
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
+        else:
+            self.optimizer = torch.optim.AdamW(
+                self.model.parameters(), lr=learning_rate, weight_decay=weight_decay
+            )
 
         # Warmup and LR Scheduler
-        self.warmup_epochs = 5
         self.warmup_start_lr = 1e-6
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             self.optimizer,
-            T_max=max_epochs - self.warmup_epochs,
+            T_max=max(max_epochs - self.warmup_epochs, 1),
             eta_min=1e-6
         )
 

@@ -160,6 +160,10 @@ def train_single_fold(
     is_multi_head = getattr(config, "is_multi_head", False) or getattr(config, "task", "") == "MultiHead_EW_and_LL_vs_LT_TT"
 
     # Train model
+    weight_decay = getattr(config, "weight_decay", 0.01)
+    warmup_epochs = getattr(config, "warmup_epochs", 5)
+    optimizer_type = getattr(config, "optimizer", "AdamW")
+
     if is_multi_head:
         trainer = MultiHeadTrainer(
             model=model,
@@ -168,6 +172,9 @@ def train_single_fold(
             test_loader=test_loader,
             device=device,
             learning_rate=config.learning_rate,
+            weight_decay=weight_decay,
+            warmup_epochs=warmup_epochs,
+            optimizer_type=optimizer_type,
             loss_weight_pol=getattr(config, "loss_weight_pol", 1.0),
             max_epochs=config.max_epochs,
             early_stopping_patience=config.early_stopping_patience,
@@ -181,6 +188,9 @@ def train_single_fold(
             test_loader=test_loader,
             device=device,
             learning_rate=config.learning_rate,
+            weight_decay=weight_decay,
+            warmup_epochs=warmup_epochs,
+            optimizer_type=optimizer_type,
             max_epochs=config.max_epochs,
             early_stopping_patience=config.early_stopping_patience,
             checkpoint_dir=str(checkpoint_dir),
