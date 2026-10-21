@@ -2463,44 +2463,21 @@
         \end{enumerate}
 
         \subsubsection{Masked Conditioners}
-        A naive implementation employing $D$ independent networks for $\{c_i\}_{i=1}^D$ scales poorly with dimension. \textbf{Masked Autoencoders for Distribution Estimation (MADE)} resolve this by parameterizing all conditioners jointly within a single feedforward network. By multiplying each weight matrix elementwise by a predefined binary mask matrix $M$:
-        \begin{equation}
-            W_{\text{eff}} = W \odot M,
-        \end{equation}
-        all computational paths from $u_j$ to $\vec{h}_i$ for $j \ge i$ are zeroed out. This allows the complete parameter sequence $(\vec{h}_1, \dots, \vec{h}_D)$ to be computed in a single forward pass, fully exploiting GPU parallelism.
+        A naive implementation employing $D$ independent networks for $\{c_i\}_{i=1}^D$ scales poorly with dimension. \textbf{Masked Autoencoders for Distribution Estimation (MADE)} resolve this by parameterizing all conditioners jointly within a single feedforward network.
 
-        To illustrate the core mechanism concretely, consider a 3-dimensional input $\vec{u} = (u_1, u_2, u_3)^T$ processed by a two-layer network with hidden activations $\vec{a} = \sigma(W_{\text{eff}} \vec{u} + \vec{b})$ and outputs $\vec{h} = V_{\text{eff}} \vec{a} + \vec{c}$. The binary masks $M^W$ (input-to-hidden) and $M^V$ (hidden-to-output) are designed to block any path from input $u_j$ to output $h_i$ whenever $j \ge i$. A representative configuration for a 3-unit hidden layer is:
+        The core requirement of an autoregressive conditioner is that its connectivity must be \textbf{strictly lower-triangular}: the parameter vector $\vec{h}_i$ must depend only on preceding inputs $\vec{u}_{<i}$, meaning connections from $u_j$ with $j \ge i$ (the diagonal and upper triangle) must strictly vanish. MADE enforces this by applying a binary mask $M$ to the weight matrix via elementwise multiplication:
         \begin{equation}
-            M^W = \begin{bmatrix}
-                1 & 0 & 0 \\
+            W_{\text{eff}} = W \odot M.
+        \end{equation}
+        For instance, in a 3-dimensional system, the mask strictly zeroes out the diagonal and upper-triangular weights:
+        \begin{equation}
+            M = \begin{bmatrix}
+                0 & 0 & 0 \\
                 1 & 0 & 0 \\
                 1 & 1 & 0
-            \end{bmatrix}, \quad
-            M^V = \begin{bmatrix}
-                0 & 0 & 0 \\
-                1 & 1 & 0 \\
-                1 & 1 & 1
             \end{bmatrix}.
         \end{equation}
-        The effective connectivity between inputs $\vec{u}$ and outputs $\vec{h}$ across the network is captured by the product of the masks:
-        \begin{equation}
-            M^V M^W = \begin{bmatrix}
-                0 & 0 & 0 \\
-                1 & 1 & 0 \\
-                1 & 1 & 1
-            \end{bmatrix}
-            \begin{bmatrix}
-                1 & 0 & 0 \\
-                1 & 0 & 0 \\
-                1 & 1 & 0
-            \end{bmatrix}
-            = \begin{bmatrix}
-                0 & 0 & 0 \\
-                2 & 0 & 0 \\
-                3 & 1 & 0
-            \end{bmatrix}.
-        \end{equation}
-        Because $M^V M^W$ is strictly lower-triangular with a vanishing diagonal, all connections with $j \ge i$ are eliminated: $h_1$ receives no input signals, $h_2$ depends solely on $u_1$, and $h_3$ depends only on $(u_1, u_2)$. In this way, the autoregressive structure is preserved across arbitrary feedforward layers within a single forward pass.
+        Inspecting each row immediately reveals that $h_1$ receives no inputs, $h_2$ depends solely on $u_1$, and $h_3$ depends only on $(u_1, u_2)$. This design enforces the autoregressive dependency directly across the network while allowing all parameters $(\vec{h}_1, \dots, \vec{h}_D)$ to be computed simultaneously in a single forward pass.
 
         \subsubsection{Coupling Layers}
         Although masked conditioners allow $\mathcal{O}(1)$ single-pass evaluation of the forward mapping $T$, inverting an autoregressive model requires sequential element-by-element inversion:
