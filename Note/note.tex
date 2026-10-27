@@ -2181,7 +2181,15 @@
 				\end{equation*}
 			\end{itemize}
 
-			A crucial physical subtlety arises regarding $w_i^{(\mathrm{pol})}$. In the initial implementation, $w_i^{(\mathrm{pol})}$ directly inherits the global cross-section weight $w_i^{(\mathrm{ew})}$. While this preserves true physical cross-section ratios, the longitudinal polarization mode possesses a substantially smaller cross section than transverse modes ($\sigma_{\mathrm{LL}} \ll \sigma_{\mathrm{LT}} + \sigma_{\mathrm{TT}}$), causing transverse events to dominate the polarization loss gradient. To restore balance within the polarization head, an independent intra-head rebalancing can be formulated in the next implementation.
+			A crucial physical subtlety arises regarding $w_i^{(\mathrm{pol})}$. In the initial baseline, $w_i^{(\mathrm{pol})}$ directly inherited the global cross-section weight $w_i^{(\mathrm{ew})}$. While this preserved true physical cross-section ratios, the longitudinal polarization mode possesses a substantially smaller cross section than transverse modes ($\sigma_{\mathrm{LL}} \ll \sigma_{\mathrm{LT}} + \sigma_{\mathrm{TT}}$, where LL constitutes only $\sim 7\text{--}8\%$ of pure EW events), causing transverse events to dominate the polarization loss gradient and depressing polarization AUC ($\sim 0.823$ vs $0.829$ in single-task).
+			To restore balance within the polarization head, an independent intra-head rebalancing is introduced. Over each batch subset with $M_i = 1$, the polarization weights are dynamically scaled:
+			\begin{equation*}
+				w_i^{(\mathrm{pol})} = \begin{cases}
+					w_i^{(\mathrm{ew})} \cdot \dfrac{W_{\mathrm{target}}}{W_{\mathrm{LL}}}, & \text{if } y_{\mathrm{pol}, i} = 1 \; (\mathrm{LL}) \\[8pt]
+					w_i^{(\mathrm{ew})} \cdot \dfrac{W_{\mathrm{target}}}{W_{\mathrm{TX}}}, & \text{if } y_{\mathrm{pol}, i} = 0 \; (\mathrm{TX})
+				\end{cases},
+			\end{equation*}
+			where $W_{\mathrm{LL}} = \sum_{i \in \mathrm{LL}} w_i^{(\mathrm{ew})}$, $W_{\mathrm{TX}} = \sum_{j \in \mathrm{TX}} w_j^{(\mathrm{ew})}$, and $W_{\mathrm{target}} = \frac{1}{2}(W_{\mathrm{LL}} + W_{\mathrm{TX}})$. This enforces $\sum_{i \in \mathrm{LL}} w_i^{(\mathrm{pol})} = \sum_{j \in \mathrm{TX}} w_j^{(\mathrm{pol})}$, guaranteeing that longitudinal and transverse modes exert equal influence on the shared representations during backpropagation while maintaining Head~1's global EW balancing intact.
 
 			\noindent\textbf{4. Model Evaluation and Checkpoint Criterion:} Model selection during validation is monitored by the arithmetic mean of both validation AUCs:
 			\begin{equation*}

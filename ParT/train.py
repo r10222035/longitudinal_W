@@ -29,6 +29,7 @@ from DNN.train import (
     plot_auc_history,
     save_metrics_json,
 )
+from DNN.config import balance_signal_background_weights
 
 
 class Trainer:
@@ -310,8 +311,8 @@ class Trainer:
             self.history["val_loss"].append(val_loss)
             self.history["val_roc_auc"].append(val_auc)
             
-            # Print progress every 10 epochs or at the first epoch
-            if epoch == 0 or (epoch + 1) % 10 == 0:
+            # Print progress every 10 epochs, at the first epoch, or every epoch if max_epochs <= 10
+            if epoch == 0 or (epoch + 1) % 10 == 0 or self.max_epochs <= 10:
                 current_lr = self.optimizer.param_groups[0]['lr']
                 print(
                     f"Epoch {epoch+1:3d} | "
@@ -548,15 +549,32 @@ class MultiHeadTrainer:
             mask_pol = (labels_pol >= 0)
             if mask_pol.any():
                 w_pol = batch_weights[mask_pol].float()
-                w_sum_pol = w_pol.sum().clamp(min=1e-12)
-                loss_pol_unreduced = bce_loss(logits_pol_sq[mask_pol], labels_pol[mask_pol].float())
-                weighted_loss_pol = (loss_pol_unreduced * w_pol).sum()
+                y_pol = labels_pol[mask_pol].float()
+                logits_pol_sub = logits_pol_sq[mask_pol]
+
+                # Intra-head weight rebalancing: sum_{i in LL} w_i^(pol) = sum_{j in TX} w_j^(pol)
+                mask_ll = (y_pol == 1.0)
+                mask_tx = (y_pol == 0.0)
+                w_ll_sum = w_pol[mask_ll].sum()
+                w_tx_sum = w_pol[mask_tx].sum()
+
+                if w_ll_sum > 0 and w_tx_sum > 0:
+                    target_sum = 0.5 * (w_ll_sum + w_tx_sum)
+                    scale_ll = target_sum / w_ll_sum
+                    scale_tx = target_sum / w_tx_sum
+                    w_pol_rebalanced = torch.where(mask_ll, w_pol * scale_ll, w_pol * scale_tx)
+                else:
+                    w_pol_rebalanced = w_pol
+
+                w_sum_pol = w_pol_rebalanced.sum().clamp(min=1e-12)
+                loss_pol_unreduced = bce_loss(logits_pol_sub, y_pol)
+                weighted_loss_pol = (loss_pol_unreduced * w_pol_rebalanced).sum()
                 loss_pol = weighted_loss_pol / w_sum_pol
 
                 total_loss_pol += weighted_loss_pol.item()
                 total_weight_pol += w_sum_pol.item()
 
-                all_logits_pol.append(logits_pol_sq[mask_pol].detach().cpu().numpy())
+                all_logits_pol.append(logits_pol_sub.detach().cpu().numpy())
                 all_labels_pol.append(labels_pol[mask_pol].cpu().numpy())
                 all_weights_pol.append(w_pol.cpu().numpy())
             else:
@@ -586,7 +604,8 @@ class MultiHeadTrainer:
             all_logits_pol = np.concatenate(all_logits_pol)
             all_labels_pol = np.concatenate(all_labels_pol)
             all_weights_pol = np.concatenate(all_weights_pol)
-            pol_auc = compute_roc_auc(all_logits_pol, all_labels_pol, all_weights_pol)
+            all_weights_pol_balanced = balance_signal_background_weights(all_labels_pol, all_weights_pol)
+            pol_auc = compute_roc_auc(all_logits_pol, all_labels_pol, all_weights_pol_balanced)
         else:
             pol_auc = 0.5
 
@@ -635,14 +654,31 @@ class MultiHeadTrainer:
             mask_pol = (labels_pol >= 0)
             if mask_pol.any():
                 w_pol = batch_weights[mask_pol].float()
-                w_sum_pol = w_pol.sum().clamp(min=1e-12)
-                loss_pol_unreduced = bce_loss(logits_pol_sq[mask_pol], labels_pol[mask_pol].float())
-                weighted_loss_pol = (loss_pol_unreduced * w_pol).sum()
+                y_pol = labels_pol[mask_pol].float()
+                logits_pol_sub = logits_pol_sq[mask_pol]
+
+                # Intra-head weight rebalancing: sum_{i in LL} w_i^(pol) = sum_{j in TX} w_j^(pol)
+                mask_ll = (y_pol == 1.0)
+                mask_tx = (y_pol == 0.0)
+                w_ll_sum = w_pol[mask_ll].sum()
+                w_tx_sum = w_pol[mask_tx].sum()
+
+                if w_ll_sum > 0 and w_tx_sum > 0:
+                    target_sum = 0.5 * (w_ll_sum + w_tx_sum)
+                    scale_ll = target_sum / w_ll_sum
+                    scale_tx = target_sum / w_tx_sum
+                    w_pol_rebalanced = torch.where(mask_ll, w_pol * scale_ll, w_pol * scale_tx)
+                else:
+                    w_pol_rebalanced = w_pol
+
+                w_sum_pol = w_pol_rebalanced.sum().clamp(min=1e-12)
+                loss_pol_unreduced = bce_loss(logits_pol_sub, y_pol)
+                weighted_loss_pol = (loss_pol_unreduced * w_pol_rebalanced).sum()
 
                 total_loss_pol += weighted_loss_pol.item()
                 total_weight_pol += w_sum_pol.item()
 
-                all_logits_pol.append(logits_pol_sq[mask_pol].cpu().numpy())
+                all_logits_pol.append(logits_pol_sub.cpu().numpy())
                 all_labels_pol.append(labels_pol[mask_pol].cpu().numpy())
                 all_weights_pol.append(w_pol.cpu().numpy())
 
@@ -663,7 +699,8 @@ class MultiHeadTrainer:
             all_logits_pol = np.concatenate(all_logits_pol)
             all_labels_pol = np.concatenate(all_labels_pol)
             all_weights_pol = np.concatenate(all_weights_pol)
-            pol_auc = compute_roc_auc(all_logits_pol, all_labels_pol, all_weights_pol)
+            all_weights_pol_balanced = balance_signal_background_weights(all_labels_pol, all_weights_pol)
+            pol_auc = compute_roc_auc(all_logits_pol, all_labels_pol, all_weights_pol_balanced)
         else:
             pol_auc = 0.5
 
@@ -709,7 +746,8 @@ class MultiHeadTrainer:
             all_logits_pol = np.concatenate(all_logits_pol)
             all_labels_pol = np.concatenate(all_labels_pol)
             all_weights_pol = np.concatenate(all_weights_pol)
-            pol_metrics = compute_metrics(all_logits_pol, all_labels_pol, all_weights_pol)
+            all_weights_pol_balanced = balance_signal_background_weights(all_labels_pol, all_weights_pol)
+            pol_metrics = compute_metrics(all_logits_pol, all_labels_pol, all_weights_pol_balanced)
         else:
             pol_metrics = {"roc_auc": 0.5, "accuracy": 0.0}
 
@@ -804,7 +842,7 @@ class MultiHeadTrainer:
             self.history["val_pol_auc"].append(val_pol_auc)
             self.history["val_mean_auc"].append(val_mean_auc)
 
-            if epoch == 0 or (epoch + 1) % 10 == 0:
+            if epoch == 0 or (epoch + 1) % 10 == 0 or self.max_epochs <= 10:
                 current_lr = self.optimizer.param_groups[0]['lr']
                 print(
                     f"Epoch {epoch+1:3d} | LR: {current_lr:.2e} | "

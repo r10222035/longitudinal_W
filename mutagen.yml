@@ -34,17 +34,17 @@ sync:
         - "*.out"
         - "*.xdv"
 
-          # --- 目標 1: NCTS Intel Cluster ---
+          # --- 目標 1: NCTS Intel Cluster (目前主力) ---
   NCTS-Intel:
     alpha: "."
     beta: "fyhsieh@140.112.102.158:/datagpunas-1/fyhsieh/longitudinal_W"
 
-  # --- 目標 2: ASGC DiCOS Cluster (使用 SSH 別名 DiCOS) ---
-  ASGC-DiCOS:
-    alpha: "."
-    beta: "DiCOS:/ceph/work/HEP/fengyang/longitudinal_W"
+  # --- 目標 2: ASGC DiCOS Cluster (備用，若需使用請取消註解) ---
+  # ASGC-DiCOS:
+  #   alpha: "."
+  #   beta: "DiCOS:/ceph/work/HEP/fengyang/longitudinal_W"
 
-  # --- 目標 3: NCTS AMD Cluster ---
-  NCTS-AMD:
-    alpha: "."
-    beta: "fyhsieh@140.112.102.218:/amd05-1/fyhsieh/longitudinal_W"
+  # --- 目標 3: NCTS AMD Cluster (備用，若需使用請取消註解) ---
+  # NCTS-AMD:
+  #   alpha: "."
+  #   beta: "fyhsieh@140.112.102.218:/amd05-1/fyhsieh/longitudinal_W"

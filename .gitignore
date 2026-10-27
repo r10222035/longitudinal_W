@@ -25,6 +25,7 @@ Sample/Parquet/
 *.blg
 *.out
 *.xdv
+*.toc
 
 # --- 5. 作業調度系統腳本與日誌檔 ---
 ASGC_Jobs/
