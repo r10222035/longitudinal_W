@@ -1,6 +1,6 @@
 sync:
   defaults:
-    mode: "two-way-safe"
+    mode: "two-way-resolved"
     symlink:
       mode: "portable"
     ignore:
@@ -23,7 +23,7 @@ sync:
         - "*.lhe"
         - "*.h5"
 
-        # --- 4. LaTeX 編譯中間暫存檔 ---
+        # --- 4. LaTeX 編譯中間暫存檔與系統快取 ---
         - "*.aux"
         - "*.log"
         - "*.fls"
@@ -33,18 +33,29 @@ sync:
         - "*.blg"
         - "*.out"
         - "*.xdv"
+        - "*.toc"
+        - "*.nav"
+        - "*.snm"
+        - "*.vrb"
+        - ".DS_Store"
 
-          # --- 目標 1: NCTS Intel Cluster (目前主力) ---
+  # --- 目標 1: NCTS Intel Cluster (目前主力) ---
   NCTS-Intel:
     alpha: "."
     beta: "fyhsieh@140.112.102.158:/datagpunas-1/fyhsieh/longitudinal_W"
+    ignore:
+      paths:
+        - ".agent_tasks_amd/"
 
   # --- 目標 2: ASGC DiCOS Cluster (備用，若需使用請取消註解) ---
   # ASGC-DiCOS:
   #   alpha: "."
   #   beta: "DiCOS:/ceph/work/HEP/fengyang/longitudinal_W"
 
-  # --- 目標 3: NCTS AMD Cluster (備用，若需使用請取消註解) ---
-  # NCTS-AMD:
-  #   alpha: "."
-  #   beta: "fyhsieh@140.112.102.218:/amd05-1/fyhsieh/longitudinal_W"
+  # --- 目標 3: NCTS AMD Cluster (CPU 事件生成專用) ---
+  NCTS-AMD:
+    alpha: "."
+    beta: "fyhsieh@140.112.102.218:/amd05-1/fyhsieh/longitudinal_W"
+    ignore:
+      paths:
+        - ".agent_tasks_intel/"
